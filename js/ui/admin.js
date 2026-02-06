@@ -109,35 +109,81 @@ const Admin = {
         }
 
         list.innerHTML = pending.map(battle => {
-            const participants = Object.entries(battle.participants).map(([cid, p]) => {
-                const clan = GameState.getClan(cid);
-                return `<span style="color:${clan.color}">${clan.name} (${p.troops})</span>`;
-            }).join(" vs ");
+            const icon = BattleSystem.getBattleIcon(battle.terrain);
 
-            const participantOptions = Object.keys(battle.participants)
-                .map(cid => {
-                    const clan = GameState.getClan(cid);
-                    return `<option value="${cid}">${clan.name}</option>`;
-                }).join("");
+            // Attacker side display
+            const atkSide = this._renderBattleSide(battle.attacker, "Attacker");
+            const defSide = this._renderBattleSide(battle.defender, "Defender");
+
+            // Bracket info
+            let bracketHtml = "";
+            if (battle.bracketRound) {
+                bracketHtml = `<div class="battle-bracket-info">Bracket Round ${battle.bracketRound}</div>`;
+            }
+
+            // Chain info
+            let chainHtml = "";
+            if (battle.chainInfo) {
+                chainHtml = `
+                    <div class="battle-chain-info">
+                        <div class="chain-row"><span class="chain-label">If Attacker wins:</span> ${battle.chainInfo.attackerWinsNext}</div>
+                        <div class="chain-row"><span class="chain-label">If Defender wins:</span> ${battle.chainInfo.defenderWinsNext}</div>
+                    </div>
+                `;
+            }
+
+            // Waiting queue
+            let waitingHtml = "";
+            if (battle.waitingAttackers && battle.waitingAttackers.length > 0) {
+                const waitList = battle.waitingAttackers.map(w => {
+                    const names = w.clans.map(c => GameState.getClan(c).name).join(" + ");
+                    const troops = Object.values(w.armyBreakdown).reduce((s, v) => s + v, 0);
+                    return `${names} (${troops})`;
+                }).join(", ");
+                waitingHtml = `<div class="battle-waiting">Waiting: ${waitList}</div>`;
+            }
 
             return `
                 <div class="battle-card">
                     <div class="battle-header">
-                        <strong>${BattleSystem.getBattleIcon(battle.terrain)} ${battle.battleType}</strong>
+                        <strong>${icon} ${battle.battleType}</strong>
                         <span>at ${battle.provinceName}</span>
                     </div>
-                    <div class="battle-participants">${participants}</div>
+                    ${bracketHtml}
+                    <div class="battle-sides">
+                        ${atkSide}
+                        <div class="battle-vs">VS</div>
+                        ${defSide}
+                    </div>
+                    ${chainHtml}
+                    ${waitingHtml}
                     <div class="battle-resolve">
-                        <select class="battle-winner-select" data-battle="${battle.id}">
-                            ${participantOptions}
-                        </select>
-                        <button class="admin-btn" onclick="Admin.resolveBattle('${battle.id}')">
-                            Resolve Winner
+                        <button class="admin-btn battle-resolve-btn attacker-btn" onclick="Admin.resolveBattle('${battle.id}', 'attacker')">
+                            Attacker Wins
+                        </button>
+                        <button class="admin-btn battle-resolve-btn defender-btn" onclick="Admin.resolveBattle('${battle.id}', 'defender')">
+                            Defender Wins
                         </button>
                     </div>
                 </div>
             `;
         }).join("");
+    },
+
+    _renderBattleSide(side, label) {
+        const entries = side.clans.map(cid => {
+            const clan = GameState.getClan(cid);
+            const troops = side.armyBreakdown[cid] || 0;
+            return `<span style="color:${clan.color}">${clan.name} <strong>${troops}</strong></span>`;
+        }).join("<br>");
+
+        return `
+            <div class="battle-side">
+                <div class="battle-side-label">${label}</div>
+                <div class="battle-side-entries">${entries}</div>
+                <div class="battle-side-total">Total: ${side.totalTroops}</div>
+            </div>
+        `;
     },
 
     togglePhase() {
@@ -172,8 +218,9 @@ const Admin = {
         GameState.phase = "planning";
         // Clear pending (non-committed) orders
         GameState.orders = [];
-        // Clear resolved battles
+        // Clear resolved battles and pending attacks
         GameState.battles = GameState.battles.filter(b => b.status !== "resolved");
+        GameState.pendingAttacks = [];
         GameState.addHistory("system", `Week ${GameState.week} begins. Planning Phase.`);
         GameState.save();
         App.updateUI();
@@ -306,18 +353,15 @@ const Admin = {
         Notifications.show(`${clan.name} deleted`, "warning");
     },
 
-    resolveBattle(battleId) {
-        const select = document.querySelector(`.battle-winner-select[data-battle="${battleId}"]`);
-        if (!select) return;
-
-        const winnerId = select.value;
-        const result = BattleSystem.resolveBattle(battleId, winnerId);
+    resolveBattle(battleId, winningSide) {
+        const result = BattleSystem.resolveBattle(battleId, winningSide);
 
         if (result.success) {
-            Notifications.show(
-                `${result.winner} wins! Defeated: ${result.losers.join(", ")}`,
-                "success"
-            );
+            let msg = `${result.winner} wins! Defeated: ${result.losers.join(", ")}`;
+            if (result.hasChainBattle) {
+                msg += " — Chain battle created!";
+            }
+            Notifications.show(msg, "success");
             MapRenderer.update();
             this.render();
         } else {

@@ -7,6 +7,7 @@ const GameState = {
     provinces: {},      // provinceId -> { owner, armies: { clanId: count } }
     orders: [],         // pending movement orders
     battles: [],        // pending battles to resolve
+    pendingAttacks: [], // armies waiting for a battle to resolve before attacking
     alliances: [],      // { clan1, clan2 }
     allianceRequests: [],// { from, to, timestamp }
     history: [],        // event log
@@ -28,7 +29,7 @@ const GameState = {
     },
 
     // State version - increment when province/map data changes to force reset
-    STATE_VERSION: 5,
+    STATE_VERSION: 6,
 
     // Initialize game
     init() {
@@ -56,6 +57,7 @@ const GameState = {
         this.provinces = {};
         this.orders = [];
         this.battles = [];
+        this.pendingAttacks = [];
         this.alliances = [];
         this.allianceRequests = [];
         this.history = [];
@@ -103,6 +105,7 @@ const GameState = {
             provinces: this.provinces,
             orders: this.orders,
             battles: this.battles,
+            pendingAttacks: this.pendingAttacks,
             alliances: this.alliances,
             allianceRequests: this.allianceRequests,
             history: this.history,

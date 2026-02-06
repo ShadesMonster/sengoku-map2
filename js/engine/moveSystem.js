@@ -122,7 +122,10 @@ const MoveSystem = {
         return GameState.orders.filter(o => o.clanId === clanId && o.fromProvince === provinceId);
     },
 
-    // Process all committed orders (admin action - executes moves)
+    // ============================================================
+    // Process all committed orders (admin action)
+    // Full army flow: deduct → classify → reinforce/claim/battle
+    // ============================================================
     processOrders() {
         const committedOrders = GameState.orders.filter(o => o.status === "committed");
 
@@ -130,14 +133,9 @@ const MoveSystem = {
             return { success: false, error: "No committed orders to process" };
         }
 
-        // Execute each order: remove troops from source, add to destination
-        const movements = []; // Track for collision detection
-
+        // Step 1: Deduct all troops from source provinces
         committedOrders.forEach(order => {
             const fromProv = GameState.provinces[order.fromProvince];
-            const toProv = GameState.provinces[order.toProvince];
-
-            // Remove from source
             if (fromProv.armies[order.clanId]) {
                 fromProv.armies[order.clanId] -= order.troops;
                 if (fromProv.armies[order.clanId] <= 0) {
@@ -145,81 +143,26 @@ const MoveSystem = {
                 }
             }
 
-            // Track movement
-            movements.push({
-                clanId: order.clanId,
-                toProvince: order.toProvince,
-                troops: order.troops
-            });
-
             const clan = GameState.getClan(order.clanId);
             const from = PROVINCE_MAP[order.fromProvince];
             const to = PROVINCE_MAP[order.toProvince];
             GameState.addHistory("move",
-                `${clan.name} moved ${order.troops} troops from ${from.name} to ${to.name}`);
+                `${clan.name} marched ${order.troops} troops from ${from.name} to ${to.name}`);
         });
 
-        // Group movements by destination
+        // Step 2: Group movements by destination
         const byDestination = {};
-        movements.forEach(m => {
-            if (!byDestination[m.toProvince]) byDestination[m.toProvince] = [];
-            byDestination[m.toProvince].push(m);
+        committedOrders.forEach(order => {
+            if (!byDestination[order.toProvince]) byDestination[order.toProvince] = [];
+            byDestination[order.toProvince].push(order);
         });
 
-        // Detect collisions and generate battles
-        Object.entries(byDestination).forEach(([provId, movers]) => {
-            const province = GameState.provinces[provId];
-            const existingArmies = Object.keys(province.armies).filter(cid => province.armies[cid] > 0);
+        // Step 3: Process each destination
+        let battlesGenerated = 0;
 
-            // Collect all clans that will be in this province
-            const allClans = new Set(existingArmies);
-            movers.forEach(m => allClans.add(m.clanId));
-
-            // Add arriving troops to province
-            movers.forEach(m => {
-                province.armies[m.clanId] = (province.armies[m.clanId] || 0) + m.troops;
-            });
-
-            // Check for hostile encounter (non-allied clans meeting)
-            const clanList = Array.from(allClans);
-            const hostileGroups = this._findHostileGroups(clanList);
-
-            if (hostileGroups.length > 1) {
-                const provData = PROVINCE_MAP[provId];
-                const terrain = TERRAIN_CONFIG[provData.terrain];
-
-                // Castle Siege triggers when fighting at a clan's capital province
-                const owner = province.owner;
-                const ownerClan = owner ? GameState.getClan(owner) : null;
-                const isCastleSiege = ownerClan && ownerClan.homeProvince === provId;
-                const battleType = isCastleSiege ? "Castle Siege" : terrain.battleType;
-
-                const battle = {
-                    id: Date.now() + Math.random(),
-                    province: provId,
-                    provinceName: provData.name,
-                    battleType,
-                    terrain: isCastleSiege ? "castle" : provData.terrain,
-                    participants: {},
-                    status: "pending", // "pending", "resolved"
-                    winner: null,
-                    week: GameState.week
-                };
-
-                // Add each clan's forces
-                clanList.forEach(cid => {
-                    if (province.armies[cid] > 0) {
-                        battle.participants[cid] = {
-                            troops: province.armies[cid],
-                            clan: GameState.getClan(cid)
-                        };
-                    }
-                });
-
-                GameState.battles.push(battle);
-                GameState.addHistory("battle",
-                    `Battle at ${provData.name}! ${terrain.battleType} - ${clanList.map(c => GameState.getClan(c).name).join(" vs ")}`);
-            }
+        Object.entries(byDestination).forEach(([provId, orders]) => {
+            const result = this._processDestination(provId, orders);
+            battlesGenerated += result.battles;
         });
 
         // Clear processed orders
@@ -229,15 +172,166 @@ const MoveSystem = {
         return {
             success: true,
             movesProcessed: committedOrders.length,
-            battlesGenerated: GameState.battles.filter(b => b.status === "pending").length
+            battlesGenerated
         };
+    },
+
+    // Process all arrivals at a single province
+    _processDestination(provId, orders) {
+        const province = GameState.provinces[provId];
+        const provData = PROVINCE_MAP[provId];
+
+        // Build a map of arriving troops per clan
+        const arrivingTroops = {};
+        orders.forEach(o => {
+            arrivingTroops[o.clanId] = (arrivingTroops[o.clanId] || 0) + o.troops;
+        });
+        const arrivingClans = Object.keys(arrivingTroops);
+
+        // Build a map of existing troops in province
+        const existingTroops = {};
+        Object.entries(province.armies).forEach(([cid, count]) => {
+            if (count > 0) existingTroops[cid] = count;
+        });
+        const existingClans = Object.keys(existingTroops);
+
+        // All clans that will be present
+        const allClanIds = [...new Set([...arrivingClans, ...existingClans])];
+
+        // Combined troop map (for building alliance blocks)
+        const combinedTroops = {};
+        allClanIds.forEach(cid => {
+            combinedTroops[cid] = (existingTroops[cid] || 0) + (arrivingTroops[cid] || 0);
+        });
+
+        // Find hostile groups (alliance blocks)
+        const hostileGroups = this._findHostileGroups(allClanIds);
+
+        // --- CASE 1: Only friendlies (1 alliance block) ---
+        if (hostileGroups.length <= 1) {
+            // Reinforcement or claim
+            arrivingClans.forEach(cid => {
+                province.armies[cid] = (province.armies[cid] || 0) + arrivingTroops[cid];
+            });
+
+            // If province is unowned, first arriving clan claims it
+            if (!province.owner && arrivingClans.length > 0) {
+                province.owner = arrivingClans[0];
+                const clan = GameState.getClan(arrivingClans[0]);
+                GameState.addHistory("move",
+                    `${clan.name} claims uncontrolled ${provData.name}`);
+            }
+            return { battles: 0 };
+        }
+
+        // --- There are hostiles. First, add all arriving troops to province ---
+        arrivingClans.forEach(cid => {
+            province.armies[cid] = (province.armies[cid] || 0) + arrivingTroops[cid];
+        });
+
+        // Build alliance blocks with troop counts
+        const allianceBlocks = hostileGroups.map(group => {
+            return BattleSystem.buildAllianceBlock(group, combinedTroops);
+        }).filter(block => block.clans.length > 0);
+
+        // Check for active battle already at this province
+        const activeBattle = BattleSystem.getActiveBattleAt(provId);
+        if (activeBattle) {
+            // Pending attacks - queue up behind existing battle
+            const attackerBlocks = allianceBlocks.filter(block =>
+                !block.clans.some(c => c === province.owner || GameState.areAllied(c, province.owner))
+            );
+            attackerBlocks.forEach(block => {
+                BattleSystem.addPendingAttack(provId, block);
+            });
+            return { battles: 0 };
+        }
+
+        // --- CASE 2: Auto-win (province owner has 0 troops) ---
+        if (province.owner) {
+            const ownerBlock = allianceBlocks.find(block => block.clans.includes(province.owner));
+            if (!ownerBlock || Object.values(ownerBlock.armyBreakdown).reduce((s, v) => s + v, 0) === 0) {
+                // Owner has no troops
+                const hostileBlocks = allianceBlocks.filter(block =>
+                    !block.clans.some(c => c === province.owner || GameState.areAllied(c, province.owner))
+                );
+                if (hostileBlocks.length === 1) {
+                    // Single hostile block takes it unopposed
+                    province.owner = hostileBlocks[0].clans[0];
+                    GameState.addHistory("move",
+                        `${GameState.getClan(hostileBlocks[0].clans[0]).name} takes undefended ${provData.name}`);
+                    return { battles: 0 };
+                }
+                // Multiple hostile blocks at undefended province - bracket with no defender
+                province.owner = null;
+                BattleSystem.createBracketBattles(provId, hostileBlocks);
+                return { battles: 1 };
+            }
+        }
+
+        // --- Identify attacker vs defender ---
+        let defenderBlock = null;
+        let attackerBlocks = [];
+
+        if (province.owner) {
+            allianceBlocks.forEach(block => {
+                if (block.clans.includes(province.owner)) {
+                    defenderBlock = block;
+                } else {
+                    // Check if entire block is allied with province owner
+                    const allAllied = block.clans.every(c =>
+                        GameState.areAllied(c, province.owner) || c === province.owner
+                    );
+                    if (allAllied && defenderBlock) {
+                        // Allied defense: merge into defender block
+                        block.clans.forEach(c => {
+                            if (!defenderBlock.clans.includes(c)) {
+                                defenderBlock.clans.push(c);
+                            }
+                            defenderBlock.armyBreakdown[c] = (defenderBlock.armyBreakdown[c] || 0) + (block.armyBreakdown[c] || 0);
+                        });
+                    } else {
+                        attackerBlocks.push(block);
+                    }
+                }
+            });
+        } else {
+            // No owner - all blocks are attackers
+            attackerBlocks = [...allianceBlocks];
+        }
+
+        // --- CASE 3: Simple attack (1 attacker vs defender) ---
+        if (attackerBlocks.length === 1 && defenderBlock) {
+            BattleSystem.createBattle(provId, attackerBlocks[0], defenderBlock);
+            return { battles: 1 };
+        }
+
+        // --- CASE 4: Multi-clan collision (bracket) ---
+        if (attackerBlocks.length >= 2) {
+            let bracketBlocks = [...attackerBlocks];
+            if (defenderBlock) {
+                bracketBlocks.push(defenderBlock);
+            }
+            BattleSystem.createBracketBattles(provId, bracketBlocks);
+            return { battles: 1 };
+        }
+
+        // --- CASE 5: Single attacker, no defender (uncontrolled) ---
+        if (attackerBlocks.length === 1 && !defenderBlock) {
+            province.owner = attackerBlocks[0].clans[0];
+            GameState.addHistory("move",
+                `${GameState.getClan(attackerBlocks[0].clans[0]).name} claims ${provData.name}`);
+            return { battles: 0 };
+        }
+
+        return { battles: 0 };
     },
 
     // Find groups of hostile (non-allied) clans
     _findHostileGroups(clanIds) {
         if (clanIds.length <= 1) return [clanIds];
 
-        // Build alliance groups
+        // Build alliance groups using union-find approach
         const groups = [];
         const assigned = new Set();
 
@@ -246,6 +340,7 @@ const MoveSystem = {
             const group = [cid];
             assigned.add(cid);
 
+            // Find all unassigned clans allied with this one
             clanIds.forEach(otherId => {
                 if (otherId !== cid && !assigned.has(otherId) && GameState.areAllied(cid, otherId)) {
                     group.push(otherId);

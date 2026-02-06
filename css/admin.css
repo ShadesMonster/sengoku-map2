@@ -134,43 +134,151 @@
 
 /* Battle cards */
 .battle-card {
-    padding: 10px;
+    padding: 12px;
     background: var(--bg-secondary);
     border: 1px solid var(--accent-red);
     border-radius: 6px;
-    margin-bottom: 8px;
+    margin-bottom: 10px;
 }
 
 .battle-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 6px;
+    margin-bottom: 8px;
 }
 
 .battle-header strong {
     color: var(--accent-red);
+    font-size: 13px;
 }
 
-.battle-participants {
-    font-size: 12px;
+.battle-header span {
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+/* Bracket info */
+.battle-bracket-info {
+    font-size: 10px;
+    color: var(--accent-gold);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
     margin-bottom: 8px;
-    padding: 4px 0;
+    padding: 3px 8px;
+    background: rgba(218, 165, 32, 0.1);
+    border-radius: 3px;
+    display: inline-block;
 }
 
+/* Attacker vs Defender sides */
+.battle-sides {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    margin-bottom: 8px;
+}
+
+.battle-side {
+    flex: 1;
+    padding: 8px;
+    background: var(--bg-card);
+    border-radius: 4px;
+    font-size: 12px;
+}
+
+.battle-side-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+    margin-bottom: 4px;
+}
+
+.battle-side-entries {
+    line-height: 1.6;
+}
+
+.battle-side-entries strong {
+    color: var(--text-primary);
+}
+
+.battle-side-total {
+    margin-top: 4px;
+    padding-top: 4px;
+    border-top: 1px solid var(--border);
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+.battle-vs {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 8px;
+    font-weight: bold;
+    color: var(--accent-red);
+    font-size: 14px;
+}
+
+/* Chain info */
+.battle-chain-info {
+    font-size: 11px;
+    padding: 6px 8px;
+    background: rgba(100, 100, 100, 0.15);
+    border-radius: 4px;
+    margin-bottom: 8px;
+}
+
+.chain-row {
+    padding: 2px 0;
+}
+
+.chain-label {
+    color: var(--text-muted);
+    font-size: 10px;
+}
+
+/* Waiting queue */
+.battle-waiting {
+    font-size: 10px;
+    color: var(--accent-gold);
+    padding: 4px 8px;
+    margin-bottom: 8px;
+    border-left: 2px solid var(--accent-gold);
+}
+
+/* Resolve buttons */
 .battle-resolve {
     display: flex;
     gap: 6px;
     align-items: center;
 }
 
-.battle-winner-select {
+.battle-resolve-btn {
     flex: 1;
-    padding: 4px 8px;
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    color: var(--text-primary);
-    border-radius: 4px;
-    font-family: inherit;
-    font-size: 11px;
+    padding: 8px 12px;
+    font-size: 12px;
+    font-weight: bold;
+    text-align: center;
+}
+
+.battle-resolve-btn.attacker-btn {
+    border-color: #e74c3c;
+    color: #e74c3c;
+}
+
+.battle-resolve-btn.attacker-btn:hover {
+    background: #e74c3c;
+    color: #fff;
+}
+
+.battle-resolve-btn.defender-btn {
+    border-color: #3498db;
+    color: #3498db;
+}
+
+.battle-resolve-btn.defender-btn:hover {
+    background: #3498db;
+    color: #fff;
 }
