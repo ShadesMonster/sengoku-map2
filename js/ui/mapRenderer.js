@@ -224,7 +224,9 @@ const MapRenderer = {
     highlightTargets(provinceId) {
         const prov = PROVINCE_MAP[provinceId];
         if (!prov) return;
+        // Bring targets to front, then selected on top
         prov.neighbors.forEach(nId => {
+            this.bringToFront(nId);
             const np = PROVINCE_MAP[nId];
             if (!np) return;
             np.pathIds.forEach(pid => {
@@ -232,6 +234,7 @@ const MapRenderer = {
                 if (path) path.classList.add("move-target");
             });
         });
+        this.bringToFront(provinceId);
     },
 
     clearTargetHighlights() {
