@@ -196,9 +196,20 @@ const MapRenderer = {
         });
     },
 
+    // Move province paths to front (just before armies layer) so borders render on top
+    bringToFront(provinceId) {
+        const prov = PROVINCE_MAP[provinceId];
+        if (!prov) return;
+        prov.pathIds.forEach(pid => {
+            const path = this.svg.getElementById(pid);
+            if (path) this.armiesLayer.parentNode.insertBefore(path, this.armiesLayer);
+        });
+    },
+
     highlightProvince(provinceId, highlight) {
         const prov = PROVINCE_MAP[provinceId];
         if (!prov) return;
+        if (highlight) this.bringToFront(provinceId);
         prov.pathIds.forEach(pid => {
             const path = this.svg.getElementById(pid);
             if (!path) return;

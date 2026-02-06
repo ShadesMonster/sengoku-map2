@@ -70,10 +70,12 @@ const MapInteraction = {
             }
         });
 
-        // Province hover
+        // Province hover - bring to front so border renders above neighbors
         this.svg.addEventListener("mouseover", (e) => {
             const target = e.target.closest(".province-path");
             if (target) {
+                const provId = target.getAttribute("data-province");
+                if (provId) MapRenderer.bringToFront(provId);
                 target.classList.add("hovered");
             }
         });

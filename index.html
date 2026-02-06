@@ -56,9 +56,24 @@
                     <filter id="shadow">
                         <feDropShadow dx="1" dy="1" stdDeviation="1" flood-opacity="0.3"/>
                     </filter>
+                    <!-- Paper/parchment texture filter -->
+                    <filter id="paper-noise" x="0" y="0" width="100%" height="100%">
+                        <feTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="4" stitchTiles="stitch" seed="2" result="noise"/>
+                        <feColorMatrix type="saturate" values="0" in="noise" result="gray"/>
+                        <feComponentTransfer in="gray" result="faded">
+                            <feFuncA type="linear" slope="0.12"/>
+                        </feComponentTransfer>
+                    </filter>
+                    <!-- Subtle vignette for map edges -->
+                    <radialGradient id="vignette" cx="50%" cy="45%" r="60%">
+                        <stop offset="0%" stop-color="transparent"/>
+                        <stop offset="85%" stop-color="transparent"/>
+                        <stop offset="100%" stop-color="rgba(0,0,0,0.4)"/>
+                    </radialGradient>
                 </defs>
                 <!-- Background water -->
-                <rect x="0" y="0" width="732" height="777" fill="#0d1b2a"/>
+                <rect x="0" y="0" width="732" height="777" fill="#0a1628"/>
+                <rect x="0" y="0" width="732" height="777" fill="#0d1b2a" opacity="0.7" filter="url(#paper-noise)"/>
                 <!-- Province paths from japan.svg -->
 <path
      d="m 333.72011,583.25913 -7.0651,-3.11696 0,9.69719 -1.59311,2.77063 -3.60181,0 -5.19493,4.15594 0,2.42429 -8.6582,0 -4.36374,-3.60181 0,-3.32475 -2.2165,-3.25549 6.23391,-7.48069 0,-6.92656 -4.01741,0 -2.07797,1.38531 -4.8486,0 -15.37697,1.73164 2.56283,2.07797 0,2.77063 2.07797,0 -3.60182,4.50227 0,1.93943 2.4243,1.73165 -2.28576,2.56282 -1.73165,0 0,4.15594 10.59765,8.17335 3.94814,1.38531 0,1.73164 -2.2165,0 -0.2078,1.52385 2.07797,0 0,4.01741 11.42884,5.33345 3.67107,0 0,2.07797 2.90916,0 6.44171,-7.96555 7.96555,-16.62375 5.88758,-2.4243 0,-4.15594 -2.07797,-1.38531 2.90916,-2.4243 0,-3.46328"
@@ -398,6 +413,10 @@
      id="path7264"
      style="fill:#fcf5e3;fill-opacity:1;fill-rule:evenodd;stroke:#787878;stroke-width:0.8311879;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none;display:inline"
      d="m 456.58672,170.60937 c 1.96983,0.48612 3.48273,-2.61996 5.78248,-1.51777 1.08805,2.7792 -3.14899,0.33431 -1.68473,8.27897 -2.45891,1.78955 -1.47908,3.03379 -4.27465,1.36508 -1.4245,-3.61177 -0.18926,-5.55436 0.1769,-8.12628 z" />
+                <!-- Paper texture overlay -->
+                <rect width="732" height="777" filter="url(#paper-noise)" pointer-events="none"/>
+                <!-- Vignette overlay -->
+                <rect width="732" height="777" fill="url(#vignette)" pointer-events="none"/>
                 <!-- Army icons layer -->
                 <g id="armies-layer"></g>
                 <!-- Movement arrows layer -->
