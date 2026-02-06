@@ -76,6 +76,10 @@ const MapInteraction = {
             if (target) {
                 const provId = target.getAttribute("data-province");
                 if (provId) MapRenderer.bringToFront(provId);
+                // Keep selected province on top of hovered ones
+                if (this.selectedProvince && this.selectedProvince !== provId) {
+                    MapRenderer.bringToFront(this.selectedProvince);
+                }
                 target.classList.add("hovered");
             }
         });
