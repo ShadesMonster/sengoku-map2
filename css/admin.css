@@ -261,24 +261,5 @@
     font-size: 12px;
     font-weight: bold;
     text-align: center;
-}
-
-.battle-resolve-btn.attacker-btn {
-    border-color: #e74c3c;
-    color: #e74c3c;
-}
-
-.battle-resolve-btn.attacker-btn:hover {
-    background: #e74c3c;
-    color: #fff;
-}
-
-.battle-resolve-btn.defender-btn {
-    border-color: #3498db;
-    color: #3498db;
-}
-
-.battle-resolve-btn.defender-btn:hover {
-    background: #3498db;
-    color: #fff;
+    transition: all 0.15s;
 }

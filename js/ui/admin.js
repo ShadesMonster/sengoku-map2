@@ -111,6 +111,12 @@ const Admin = {
         list.innerHTML = pending.map(battle => {
             const icon = BattleSystem.getBattleIcon(battle.terrain);
 
+            // Clan names for buttons
+            const atkNames = battle.attacker.clans.map(c => GameState.getClan(c).name).join(" + ");
+            const defNames = battle.defender.clans.map(c => GameState.getClan(c).name).join(" + ");
+            const atkColor = GameState.getClan(battle.attacker.clans[0])?.color || "#e74c3c";
+            const defColor = GameState.getClan(battle.defender.clans[0])?.color || "#3498db";
+
             // Attacker side display
             const atkSide = this._renderBattleSide(battle.attacker, "Attacker");
             const defSide = this._renderBattleSide(battle.defender, "Defender");
@@ -126,8 +132,8 @@ const Admin = {
             if (battle.chainInfo) {
                 chainHtml = `
                     <div class="battle-chain-info">
-                        <div class="chain-row"><span class="chain-label">If Attacker wins:</span> ${battle.chainInfo.attackerWinsNext}</div>
-                        <div class="chain-row"><span class="chain-label">If Defender wins:</span> ${battle.chainInfo.defenderWinsNext}</div>
+                        <div class="chain-row"><span class="chain-label">If ${atkNames} wins:</span> ${battle.chainInfo.attackerWinsNext}</div>
+                        <div class="chain-row"><span class="chain-label">If ${defNames} wins:</span> ${battle.chainInfo.defenderWinsNext}</div>
                     </div>
                 `;
             }
@@ -158,11 +164,15 @@ const Admin = {
                     ${chainHtml}
                     ${waitingHtml}
                     <div class="battle-resolve">
-                        <button class="admin-btn battle-resolve-btn attacker-btn" onclick="Admin.resolveBattle('${battle.id}', 'attacker')">
-                            Attacker Wins
+                        <button class="admin-btn battle-resolve-btn" style="border-color:${atkColor};color:${atkColor}" onclick="Admin.resolveBattle('${battle.id}', 'attacker')"
+                            onmouseenter="this.style.background='${atkColor}';this.style.color='#fff'"
+                            onmouseleave="this.style.background='';this.style.color='${atkColor}'">
+                            ${atkNames} Wins
                         </button>
-                        <button class="admin-btn battle-resolve-btn defender-btn" onclick="Admin.resolveBattle('${battle.id}', 'defender')">
-                            Defender Wins
+                        <button class="admin-btn battle-resolve-btn" style="border-color:${defColor};color:${defColor}" onclick="Admin.resolveBattle('${battle.id}', 'defender')"
+                            onmouseenter="this.style.background='${defColor}';this.style.color='#fff'"
+                            onmouseleave="this.style.background='';this.style.color='${defColor}'">
+                            ${defNames} Wins
                         </button>
                     </div>
                 </div>
