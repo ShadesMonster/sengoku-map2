@@ -1,12 +1,23 @@
 // Dashboard - Clan stats, family tree, marriage alliances, orders overview
 const Dashboard = {
+    viewingClan: null, // null = own clan, or a clanId for viewing others
+
     init() {
         document.getElementById("btn-dashboard").addEventListener("click", () => {
+            this.viewingClan = null; // reset to own clan when opening
             this.toggle();
         });
 
         document.querySelector("#dashboard-panel .overlay-close").addEventListener("click", () => {
             document.getElementById("dashboard-panel").classList.add("hidden");
+        });
+
+        // Re-render dashboard when Roblox avatars finish loading
+        RobloxAvatar.onLoad(() => {
+            const panel = document.getElementById("dashboard-panel");
+            if (!panel.classList.contains("hidden")) {
+                this.render();
+            }
         });
     },
 
@@ -18,25 +29,46 @@ const Dashboard = {
         }
     },
 
+    // View another clan's dashboard (read-only)
+    viewClan(clanId) {
+        this.viewingClan = clanId;
+        const panel = document.getElementById("dashboard-panel");
+        panel.classList.remove("hidden");
+        this.render();
+    },
+
     render() {
-        const clanId = GameState.selectedClan;
-        if (!clanId) {
+        // Determine which clan to display
+        const displayClanId = this.viewingClan || GameState.selectedClan;
+        const isOwnClan = !this.viewingClan || this.viewingClan === GameState.selectedClan;
+
+        if (!displayClanId) {
             document.getElementById("dash-clan-info").innerHTML =
                 '<div class="empty-state">Select a clan to view dashboard</div>';
             return;
         }
 
-        const clan = GameState.getClan(clanId);
-        const family = CLAN_FAMILIES[clanId];
-        const ownedProvinces = GameState.getOwnedProvinces(clanId);
-        const totalTroops = GameState.getTotalTroops(clanId);
-        const allies = GameState.getAllies(clanId);
-        const orders = MoveSystem.getOrders(clanId);
-        const pendingRequests = Diplomacy.getPendingRequests(clanId);
-        const sentRequests = Diplomacy.getSentRequests(clanId);
+        const clan = GameState.getClan(displayClanId);
+        const family = CLAN_FAMILIES[displayClanId];
+        const ownedProvinces = GameState.getOwnedProvinces(displayClanId);
+        const totalTroops = GameState.getTotalTroops(displayClanId);
+        const allies = GameState.getAllies(displayClanId);
 
-        // Clan Info with leader avatar
+        // Clan browser + Info with leader avatar
+        const clanBrowser = `
+            <div class="clan-browser">
+                <select id="dash-clan-browser" onchange="Dashboard.viewClan(this.value || null)">
+                    <option value="">-- Your Clan --</option>
+                    ${Object.values(GameState.clans).map(c =>
+                        `<option value="${c.id}" ${c.id === this.viewingClan ? 'selected' : ''}>${c.japaneseName} ${c.name}</option>`
+                    ).join("")}
+                </select>
+                ${!isOwnClan ? '<span class="viewing-badge">Viewing</span>' : ''}
+            </div>
+        `;
+
         document.getElementById("dash-clan-info").innerHTML = `
+            ${clanBrowser}
             <div class="dash-header" style="border-color: ${clan.color}">
                 <div class="clan-leader-row">
                     ${family ? RobloxAvatar.img(family.leader.robloxId, 52, "leader-avatar") : ""}
@@ -75,30 +107,45 @@ const Dashboard = {
             </div>
         `;
 
-        // Family Tree
-        this.renderFamilyTree(clanId);
+        // Family Tree (always visible)
+        this.renderFamilyTree(displayClanId);
 
-        // Marriage Alliances
-        this.renderAlliances(clanId, allies);
+        // Marriage Alliances (always visible, but actions hidden for other clans)
+        this.renderAlliances(displayClanId, allies, isOwnClan);
 
-        // Marriage Proposals
-        this.renderProposals(clanId, pendingRequests, sentRequests);
+        // Marriage Proposals (only visible for own clan)
+        if (isOwnClan) {
+            const pendingRequests = Diplomacy.getPendingRequests(displayClanId);
+            const sentRequests = Diplomacy.getSentRequests(displayClanId);
+            this.renderProposals(displayClanId, pendingRequests, sentRequests);
+            document.getElementById("dash-pending-requests").style.display = "";
+        } else {
+            document.getElementById("dash-pending-requests").innerHTML = "";
+            document.getElementById("dash-pending-requests").style.display = "none";
+        }
 
-        // Orders
-        document.getElementById("dash-orders").innerHTML = `
-            <h3>Orders (Week ${GameState.week})</h3>
-            ${orders.length === 0 ? '<div class="empty-state">No orders this turn</div>' :
-            orders.map(o => {
-                const from = PROVINCE_MAP[o.fromProvince];
-                const to = PROVINCE_MAP[o.toProvince];
-                return `
-                    <div class="order-entry ${o.status}">
-                        <span>${o.troops.toLocaleString()} soldiers <span class="player-equiv">(${o.troops / TROOP_RATIO} men)</span>: ${from.name} → ${to.name}</span>
-                        <span class="order-status ${o.status}">${o.status}</span>
-                    </div>
-                `;
-            }).join("")}
-        `;
+        // Orders (only visible for own clan)
+        if (isOwnClan) {
+            const orders = MoveSystem.getOrders(displayClanId);
+            document.getElementById("dash-orders").innerHTML = `
+                <h3>Orders (Week ${GameState.week})</h3>
+                ${orders.length === 0 ? '<div class="empty-state">No orders this turn</div>' :
+                orders.map(o => {
+                    const from = PROVINCE_MAP[o.fromProvince];
+                    const to = PROVINCE_MAP[o.toProvince];
+                    return `
+                        <div class="order-entry ${o.status}">
+                            <span>${o.troops.toLocaleString()} soldiers <span class="player-equiv">(${o.troops / TROOP_RATIO} men)</span>: ${from.name} → ${to.name}</span>
+                            <span class="order-status ${o.status}">${o.status}</span>
+                        </div>
+                    `;
+                }).join("")}
+            `;
+            document.getElementById("dash-orders").style.display = "";
+        } else {
+            document.getElementById("dash-orders").innerHTML = "";
+            document.getElementById("dash-orders").style.display = "none";
+        }
     },
 
     renderFamilyTree(clanId) {
@@ -171,7 +218,7 @@ const Dashboard = {
         `;
     },
 
-    renderAlliances(clanId, allies) {
+    renderAlliances(clanId, allies, isOwnClan) {
         const container = document.getElementById("dash-allies");
 
         container.innerHTML = `
@@ -209,19 +256,24 @@ const Dashboard = {
                                 <span class="ally-name" style="color: ${ally.color}">${ally.japaneseName} ${ally.name}</span>
                                 ${allyFamily ? `<span class="ally-leader-name">${allyFamily.leader.name}</span>` : ""}
                             </div>
+                            ${!isOwnClan ? `<button class="small-btn" onclick="Dashboard.viewClan('${aId}')" style="margin-left:auto">View</button>` : ""}
                         </div>
                         ${marriageDetail}
-                        <div class="ally-actions">
-                            <button class="small-btn danger" onclick="Dashboard.dissolveMarriage('${clanId}', '${aId}')">
-                                Dissolve Marriage
-                            </button>
-                        </div>
+                        ${isOwnClan ? `
+                            <div class="ally-actions">
+                                <button class="small-btn danger" onclick="Dashboard.dissolveMarriage('${clanId}', '${aId}')">
+                                    Dissolve Marriage
+                                </button>
+                            </div>
+                        ` : ""}
                     </div>
                 `;
             }).join("")}
-            <button class="action-btn" onclick="Dashboard.showMarriageModal()">
-                Propose Marriage
-            </button>
+            ${isOwnClan ? `
+                <button class="action-btn" onclick="Dashboard.showMarriageModal()">
+                    Propose Marriage
+                </button>
+            ` : ""}
         `;
     },
 

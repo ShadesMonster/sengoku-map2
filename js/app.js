@@ -108,12 +108,13 @@ const App = {
             const troops = GameState.getTotalTroops(c.id);
             const isSelected = c.id === GameState.selectedClan;
             return `
-                <div class="legend-entry ${isSelected ? 'selected' : ''}"
-                     onclick="document.getElementById('clan-selector').value='${c.id}';
-                              document.getElementById('clan-selector').dispatchEvent(new Event('change'))">
-                    <span class="legend-color" style="background:${c.color}"></span>
-                    <span class="legend-name">${c.japaneseName} ${c.name}</span>
+                <div class="legend-entry ${isSelected ? 'selected' : ''}">
+                    <span class="legend-color" style="background:${c.color}" onclick="document.getElementById('clan-selector').value='${c.id}';
+                              document.getElementById('clan-selector').dispatchEvent(new Event('change'))"></span>
+                    <span class="legend-name" onclick="document.getElementById('clan-selector').value='${c.id}';
+                              document.getElementById('clan-selector').dispatchEvent(new Event('change'))">${c.japaneseName} ${c.name}</span>
                     <span class="legend-stats">${provinces}P ${troops}T</span>
+                    <span class="legend-view" onclick="event.stopPropagation(); Dashboard.viewClan('${c.id}')" title="View clan">&#128065;</span>
                 </div>
             `;
         }).join("");

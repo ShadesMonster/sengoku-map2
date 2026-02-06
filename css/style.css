@@ -313,6 +313,18 @@ body {
     font-size: 10px;
 }
 
+.legend-view {
+    font-size: 12px;
+    cursor: pointer;
+    opacity: 0.4;
+    transition: opacity 0.15s;
+    flex-shrink: 0;
+}
+
+.legend-view:hover {
+    opacity: 1;
+}
+
 /* === Animations === */
 @keyframes pulse {
     0%, 100% { opacity: 1; }

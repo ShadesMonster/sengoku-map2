@@ -55,7 +55,8 @@ const MoveSystem = {
 
     // Commit an order (locks it in)
     commitOrder(orderId) {
-        const order = GameState.orders.find(o => o.id === orderId);
+        const numId = Number(orderId);
+        const order = GameState.orders.find(o => o.id === numId);
         if (!order) return { success: false, error: "Order not found" };
         if (order.status === "committed") return { success: false, error: "Already committed" };
 
@@ -74,7 +75,8 @@ const MoveSystem = {
 
     // Uncommit an order (12-hour grace period)
     uncommitOrder(orderId) {
-        const order = GameState.orders.find(o => o.id === orderId);
+        const numId = Number(orderId);
+        const order = GameState.orders.find(o => o.id === numId);
         if (!order) return { success: false, error: "Order not found" };
         if (order.status !== "committed") return { success: false, error: "Order is not committed" };
 
@@ -96,7 +98,8 @@ const MoveSystem = {
 
     // Cancel a pending order
     cancelOrder(orderId) {
-        const idx = GameState.orders.findIndex(o => o.id === orderId);
+        const numId = Number(orderId);
+        const idx = GameState.orders.findIndex(o => o.id === numId);
         if (idx === -1) return { success: false, error: "Order not found" };
 
         const order = GameState.orders[idx];

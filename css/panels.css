@@ -508,6 +508,37 @@
     font-weight: normal;
 }
 
+/* === Clan Browser (Dashboard) === */
+.clan-browser {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.clan-browser select {
+    flex: 1;
+    padding: 6px 8px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 12px;
+}
+
+.viewing-badge {
+    padding: 2px 8px;
+    background: rgba(240, 192, 64, 0.2);
+    color: var(--accent-gold);
+    border-radius: 10px;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    flex-shrink: 0;
+}
+
 /* === Roblox Avatars === */
 .roblox-avatar {
     border-radius: 50%;

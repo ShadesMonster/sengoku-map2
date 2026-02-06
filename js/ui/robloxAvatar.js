@@ -3,6 +3,13 @@ const RobloxAvatar = {
     cache: {},   // robloxId -> imageUrl (in-memory only, never persisted)
     loading: false,
     loaded: false,
+    onLoadCallbacks: [],
+
+    // Register a callback to fire when avatars finish loading
+    onLoad(fn) {
+        if (this.loaded) { fn(); return; }
+        this.onLoadCallbacks.push(fn);
+    },
 
     // Fetch all avatars for clan families on page load
     async fetchAll() {
@@ -15,7 +22,11 @@ const RobloxAvatar = {
         });
 
         const unique = [...ids];
-        if (unique.length === 0) { this.loaded = true; return; }
+        if (unique.length === 0) {
+            this.loaded = true;
+            this._fireCallbacks();
+            return;
+        }
 
         this.loading = true;
         try {
@@ -24,18 +35,31 @@ const RobloxAvatar = {
                 const batch = unique.slice(i, i + 100);
                 const url = `https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${batch.join(",")}&size=150x150&format=Png&isCircular=false`;
                 const res = await fetch(url);
+                if (!res.ok) {
+                    console.warn("Roblox avatar API returned", res.status);
+                    continue;
+                }
                 const data = await res.json();
-                data.data.forEach(item => {
-                    if (item.state === "Completed" && item.imageUrl) {
-                        this.cache[item.targetId] = item.imageUrl;
-                    }
-                });
+                if (data.data) {
+                    data.data.forEach(item => {
+                        if (item.state === "Completed" && item.imageUrl) {
+                            this.cache[item.targetId] = item.imageUrl;
+                        }
+                    });
+                }
             }
+            console.log(`Loaded ${Object.keys(this.cache).length} Roblox avatars`);
         } catch (e) {
             console.warn("Failed to fetch Roblox avatars:", e);
         }
         this.loading = false;
         this.loaded = true;
+        this._fireCallbacks();
+    },
+
+    _fireCallbacks() {
+        this.onLoadCallbacks.forEach(fn => fn());
+        this.onLoadCallbacks = [];
     },
 
     // Get cached URL (or null if not loaded)

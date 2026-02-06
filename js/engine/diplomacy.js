@@ -75,7 +75,8 @@ const Diplomacy = {
 
     // Accept marriage proposal - forms alliance
     acceptMarriage(requestId) {
-        const idx = GameState.allianceRequests.findIndex(r => r.id === requestId);
+        const numId = Number(requestId);
+        const idx = GameState.allianceRequests.findIndex(r => r.id === numId);
         if (idx === -1) return { success: false, error: "Proposal not found" };
 
         const request = GameState.allianceRequests[idx];
@@ -115,7 +116,8 @@ const Diplomacy = {
 
     // Reject marriage proposal
     rejectMarriage(requestId) {
-        const idx = GameState.allianceRequests.findIndex(r => r.id === requestId);
+        const numId = Number(requestId);
+        const idx = GameState.allianceRequests.findIndex(r => r.id === numId);
         if (idx === -1) return { success: false, error: "Proposal not found" };
 
         const request = GameState.allianceRequests[idx];
