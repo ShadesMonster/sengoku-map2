@@ -35,13 +35,8 @@ const RobloxAvatar = {
             for (let i = 0; i < unique.length; i += 100) {
                 const batch = unique.slice(i, i + 100);
 
-                // Use PHP proxy if API is enabled (solves CORS), otherwise direct
-                let url;
-                if (typeof API !== "undefined" && API.enabled) {
-                    url = API.getAvatarProxyUrl(batch);
-                } else {
-                    url = `https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${batch.join(",")}&size=150x150&format=Png&isCircular=false`;
-                }
+                // Always use Roblox API directly (it's HTTPS + CORS-friendly)
+                const url = `https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${batch.join(",")}&size=150x150&format=Png&isCircular=false`;
 
                 const res = await fetch(url);
                 if (!res.ok) {
