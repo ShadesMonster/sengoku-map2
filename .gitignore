@@ -1,2 +1,2 @@
-# Credentials
-api/config.php
+# Node modules (if testing locally)
+node_modules/

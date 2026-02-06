@@ -1,7 +1,7 @@
-// API Client - connects frontend to PHP backend
+// API Client - connects frontend to Express backend on PebbleHost
 // Set API_BASE_URL to your server URL to enable database mode.
 // Leave as null to use local-only mode (localStorage + hardcoded families).
-const API_BASE_URL = null; // e.g. "https://your-server.com/api"
+const API_BASE_URL = "http://142.44.234.13:8073/api/sengoku";
 
 const API = {
     enabled: !!API_BASE_URL,
@@ -29,17 +29,17 @@ const API = {
 
     // Fetch all clan families from database
     async getFamilies() {
-        return this.request("families.php");
+        return this.request("families");
     },
 
     // Fetch one clan's family
     async getClanFamily(clanKey) {
-        return this.request(`families.php?clan=${clanKey}`);
+        return this.request(`families?clan=${clanKey}`);
     },
 
     // Add a family member
     async addFamilyMember(clanKey, characterName, role, gender, robloxUserId, title) {
-        return this.request("families.php", "POST", {
+        return this.request("families", "POST", {
             clan: clanKey,
             character_name: characterName,
             role,
@@ -51,12 +51,12 @@ const API = {
 
     // Update a family member
     async updateFamilyMember(id, updates) {
-        return this.request("families.php", "PUT", { id, ...updates });
+        return this.request("families", "PUT", { id, ...updates });
     },
 
     // Remove a family member
     async removeFamilyMember(id) {
-        return this.request(`families.php?id=${id}`, "DELETE");
+        return this.request(`families?id=${id}`, "DELETE");
     },
 
     // ---- Marriages ----
@@ -64,12 +64,12 @@ const API = {
     // Fetch marriages/proposals (optionally for a specific clan)
     async getMarriages(clanKey) {
         const q = clanKey ? `?clan=${clanKey}` : "";
-        return this.request(`marriages.php${q}`);
+        return this.request(`marriages${q}`);
     },
 
     // Propose a marriage
     async proposeMarriage(person1Id, person2Id, proposedByClan) {
-        return this.request("marriages.php", "POST", {
+        return this.request("marriages", "POST", {
             person1_id: person1Id,
             person2_id: person2Id,
             proposed_by: proposedByClan,
@@ -78,7 +78,7 @@ const API = {
 
     // Accept/reject/dissolve a marriage
     async updateMarriage(id, action) {
-        return this.request("marriages.php", "PUT", { id, action });
+        return this.request("marriages", "PUT", { id, action });
     },
 
     // ---- Avatars (proxy) ----
@@ -86,6 +86,6 @@ const API = {
     // Get avatar URL for proxy mode (avoids CORS)
     getAvatarProxyUrl(userIds) {
         if (!this.enabled) return null;
-        return `${API_BASE_URL}/avatars.php?userIds=${userIds.join(",")}`;
+        return `${API_BASE_URL}/avatars?userIds=${userIds.join(",")}`;
     },
 };
