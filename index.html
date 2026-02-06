@@ -446,6 +446,7 @@
             <div class="overlay-content">
                 <div id="dash-clan-info"></div>
                 <div id="dash-stats"></div>
+                <div id="dash-family"></div>
                 <div id="dash-allies"></div>
                 <div id="dash-pending-requests"></div>
                 <div id="dash-orders"></div>
@@ -528,13 +529,10 @@
             </div>
         </div>
 
-        <!-- Alliance Request Modal -->
+        <!-- Marriage Proposal Modal -->
         <div id="alliance-modal" class="modal hidden">
             <div class="modal-content">
-                <h3>Alliance Request</h3>
-                <select id="alliance-target-clan"></select>
-                <button id="alliance-send" class="modal-btn confirm">Send Request</button>
-                <button id="alliance-cancel" class="modal-btn cancel">Cancel</button>
+                <!-- Content built dynamically by Dashboard.showMarriageModal() -->
             </div>
         </div>
 
@@ -567,6 +565,7 @@
     <script src="js/engine/moveSystem.js"></script>
     <script src="js/engine/battleSystem.js"></script>
     <script src="js/engine/diplomacy.js"></script>
+    <script src="js/ui/robloxAvatar.js"></script>
     <script src="js/ui/mapRenderer.js"></script>
     <script src="js/ui/mapInteraction.js"></script>
     <script src="js/ui/panels.js"></script>

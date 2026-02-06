@@ -28,7 +28,7 @@ const GameState = {
     },
 
     // State version - increment when province/map data changes to force reset
-    STATE_VERSION: 4,
+    STATE_VERSION: 5,
 
     // Initialize game
     init() {

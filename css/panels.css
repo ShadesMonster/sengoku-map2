@@ -508,6 +508,304 @@
     font-weight: normal;
 }
 
+/* === Roblox Avatars === */
+.roblox-avatar {
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid var(--border);
+    flex-shrink: 0;
+}
+
+.roblox-avatar.placeholder {
+    background: var(--bg-card);
+    border: 2px dashed var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+    font-size: 14px;
+    border-radius: 50%;
+}
+
+.roblox-avatar.leader-avatar {
+    border-color: var(--accent-gold);
+    border-width: 2px;
+}
+
+/* === Clan Leader Row (Dashboard Header) === */
+.clan-leader-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.clan-leader-info h3 {
+    margin: 0;
+}
+
+.leader-name {
+    font-size: 13px;
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+.leader-title {
+    font-size: 11px;
+    color: var(--text-muted);
+    font-style: italic;
+}
+
+/* === Family Tree === */
+.family-tree {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.family-leader {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    background: var(--bg-card);
+    border-radius: 6px;
+    border-left: 3px solid var(--accent-gold);
+}
+
+.family-person-info {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+
+.family-person-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.family-person-role {
+    font-size: 10px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.gender-icon {
+    font-size: 12px;
+    margin-left: 3px;
+}
+
+.gender-icon.male {
+    color: #5599ff;
+}
+
+.gender-icon.female {
+    color: #ff77aa;
+}
+
+.family-children {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding-left: 16px;
+    border-left: 2px solid var(--border);
+    margin-left: 24px;
+}
+
+.family-child {
+    padding: 6px 8px;
+    background: var(--bg-card);
+    border-radius: 4px;
+}
+
+.family-child.married {
+    border-left: 2px solid #ff77aa;
+}
+
+.family-child-main {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.marriage-link {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 4px;
+    padding: 4px 8px 4px 44px;
+    font-size: 11px;
+}
+
+.marriage-heart {
+    color: #ff4466;
+    font-size: 12px;
+    flex-shrink: 0;
+}
+
+.marriage-heart-lg {
+    color: #ff4466;
+    font-size: 18px;
+    flex-shrink: 0;
+}
+
+.spouse-name {
+    font-weight: 500;
+    font-size: 11px;
+}
+
+.spouse-clan {
+    font-size: 10px;
+    color: var(--text-muted);
+}
+
+.spouse-avatar {
+    border-width: 1px;
+}
+
+/* === Alliance Entry Cards === */
+.ally-entry-card {
+    padding: 10px;
+    background: var(--bg-card);
+    border-radius: 6px;
+    margin-bottom: 6px;
+}
+
+.ally-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+}
+
+.ally-info {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+
+.ally-name {
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.ally-leader-name {
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+.ally-leader-avatar {
+    border-color: var(--border);
+}
+
+.alliance-marriage-detail {
+    padding: 6px 0;
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    margin: 6px 0;
+}
+
+.marriage-couple {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+}
+
+.marriage-person {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    text-align: center;
+}
+
+.person-name-small {
+    font-size: 10px;
+    color: var(--text-secondary);
+    max-width: 100px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ally-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 4px;
+}
+
+/* === Marriage Proposals === */
+.proposal-detail {
+    flex: 1;
+}
+
+.proposal-people {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    flex-wrap: wrap;
+}
+
+.proposal-from {
+    font-size: 10px;
+    color: var(--text-muted);
+    margin-top: 3px;
+}
+
+.proposal-actions {
+    display: flex;
+    gap: 4px;
+    flex-shrink: 0;
+}
+
+/* === Marriage Proposal Modal === */
+.marriage-form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.marriage-form .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.marriage-form label {
+    font-size: 11px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.person-preview {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    background: var(--bg-secondary);
+    border-radius: 4px;
+    font-size: 12px;
+    min-height: 40px;
+}
+
+.person-preview span {
+    color: var(--text-secondary);
+}
+
+/* Pulse animation for pending requests */
+@keyframes pulse-border {
+    0%, 100% { border-color: var(--border); }
+    50% { border-color: var(--accent-gold); }
+}
+
+.pulse-border {
+    animation: pulse-border 2s ease-in-out infinite;
+}
+
 /* Empty state */
 .empty-state {
     padding: 12px;

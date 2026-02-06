@@ -6,6 +6,9 @@ const App = {
         // Initialize game state
         GameState.init();
 
+        // Fetch Roblox avatars (async, non-blocking)
+        RobloxAvatar.fetchAll();
+
         // Initialize UI components
         Notifications.init();
         MapRenderer.init();

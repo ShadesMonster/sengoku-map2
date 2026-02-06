@@ -319,15 +319,6 @@ body {
     50% { opacity: 0.7; }
 }
 
-@keyframes pulse-border {
-    0%, 100% { border-color: var(--border); }
-    50% { border-color: var(--accent-gold); }
-}
-
-.pulse-border {
-    animation: pulse-border 2s ease-in-out infinite;
-}
-
 /* === Scrollbar === */
 ::-webkit-scrollbar {
     width: 6px;

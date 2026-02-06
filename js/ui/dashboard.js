@@ -1,4 +1,4 @@
-// Dashboard - Clan stats, allies, orders overview
+// Dashboard - Clan stats, family tree, marriage alliances, orders overview
 const Dashboard = {
     init() {
         document.getElementById("btn-dashboard").addEventListener("click", () => {
@@ -27,6 +27,7 @@ const Dashboard = {
         }
 
         const clan = GameState.getClan(clanId);
+        const family = CLAN_FAMILIES[clanId];
         const ownedProvinces = GameState.getOwnedProvinces(clanId);
         const totalTroops = GameState.getTotalTroops(clanId);
         const allies = GameState.getAllies(clanId);
@@ -34,10 +35,17 @@ const Dashboard = {
         const pendingRequests = Diplomacy.getPendingRequests(clanId);
         const sentRequests = Diplomacy.getSentRequests(clanId);
 
-        // Clan Info
+        // Clan Info with leader avatar
         document.getElementById("dash-clan-info").innerHTML = `
             <div class="dash-header" style="border-color: ${clan.color}">
-                <h3 style="color: ${clan.color}">${clan.japaneseName} ${clan.name}</h3>
+                <div class="clan-leader-row">
+                    ${family ? RobloxAvatar.img(family.leader.robloxId, 52, "leader-avatar") : ""}
+                    <div class="clan-leader-info">
+                        <h3 style="color: ${clan.color}">${clan.japaneseName} ${clan.name}</h3>
+                        ${family ? `<div class="leader-name">${family.leader.name}</div>
+                        <div class="leader-title">${family.leader.title}</div>` : ""}
+                    </div>
+                </div>
             </div>
         `;
 
@@ -58,7 +66,7 @@ const Dashboard = {
                 </div>
                 <div class="stat-card">
                     <div class="stat-value">${allies.length}</div>
-                    <div class="stat-label">Allies</div>
+                    <div class="stat-label">Marriages</div>
                 </div>
             </div>
             <div class="rally-bar">
@@ -67,53 +75,14 @@ const Dashboard = {
             </div>
         `;
 
-        // Allies
-        document.getElementById("dash-allies").innerHTML = `
-            <h3>Allies</h3>
-            ${allies.length === 0 ? '<div class="empty-state">No allies</div>' :
-            allies.map(aId => {
-                const ally = GameState.getClan(aId);
-                return `
-                    <div class="ally-entry" style="border-left: 3px solid ${ally.color}">
-                        <span>${ally.japaneseName} ${ally.name}</span>
-                        <button class="small-btn danger" onclick="Dashboard.breakAlliance('${clanId}', '${aId}')">
-                            Break Alliance
-                        </button>
-                    </div>
-                `;
-            }).join("")}
-            <button class="action-btn" onclick="Dashboard.showAllianceModal()">
-                Request Alliance
-            </button>
-        `;
+        // Family Tree
+        this.renderFamilyTree(clanId);
 
-        // Pending requests
-        document.getElementById("dash-pending-requests").innerHTML = `
-            <h3>Alliance Requests</h3>
-            ${pendingRequests.length === 0 && sentRequests.length === 0 ?
-            '<div class="empty-state">No pending requests</div>' : ''}
-            ${pendingRequests.map(r => {
-                const fromClan = GameState.getClan(r.from);
-                return `
-                    <div class="request-entry pulse-border" style="border-left: 3px solid ${fromClan.color}">
-                        <span>${fromClan.name} wants to ally</span>
-                        <div>
-                            <button class="small-btn commit" onclick="Dashboard.acceptAlliance('${r.id}')">Accept</button>
-                            <button class="small-btn cancel" onclick="Dashboard.rejectAlliance('${r.id}')">Reject</button>
-                        </div>
-                    </div>
-                `;
-            }).join("")}
-            ${sentRequests.map(r => {
-                const toClan = GameState.getClan(r.to);
-                return `
-                    <div class="request-entry sent">
-                        <span>Sent to ${toClan.name}</span>
-                        <span class="status-pending">Pending...</span>
-                    </div>
-                `;
-            }).join("")}
-        `;
+        // Marriage Alliances
+        this.renderAlliances(clanId, allies);
+
+        // Marriage Proposals
+        this.renderProposals(clanId, pendingRequests, sentRequests);
 
         // Orders
         document.getElementById("dash-orders").innerHTML = `
@@ -132,43 +101,313 @@ const Dashboard = {
         `;
     },
 
-    showAllianceModal() {
+    renderFamilyTree(clanId) {
+        const family = CLAN_FAMILIES[clanId];
+        const container = document.getElementById("dash-family");
+        if (!family) {
+            container.innerHTML = '<div class="empty-state">No family data</div>';
+            return;
+        }
+
+        const clan = GameState.getClan(clanId);
+
+        container.innerHTML = `
+            <h3>Family</h3>
+            <div class="family-tree">
+                <div class="family-leader">
+                    ${RobloxAvatar.img(family.leader.robloxId, 48, "family-avatar")}
+                    <div class="family-person-info">
+                        <span class="family-person-name">${family.leader.name}</span>
+                        <span class="family-person-role">Clan Leader</span>
+                    </div>
+                </div>
+                <div class="family-children">
+                    ${family.children.map(child => {
+                        const genderIcon = child.gender === "male" ? "♂" : "♀";
+                        const genderClass = child.gender === "male" ? "male" : "female";
+                        const married = Diplomacy.isMarried(child.id);
+                        let marriageInfo = "";
+
+                        if (married) {
+                            // Find who they married
+                            const alliance = GameState.alliances.find(a =>
+                                a.person1 === child.id || a.person2 === child.id
+                            );
+                            if (alliance) {
+                                const spouseId = alliance.person1 === child.id ? alliance.person2 : alliance.person1;
+                                const spouse = Diplomacy.getPerson(spouseId);
+                                if (spouse) {
+                                    const spouseClan = GameState.getClan(spouse.clanId);
+                                    marriageInfo = `
+                                        <div class="marriage-link">
+                                            <span class="marriage-heart">&#10084;</span>
+                                            ${RobloxAvatar.img(spouse.robloxId, 28, "spouse-avatar")}
+                                            <span class="spouse-name" style="color: ${spouseClan ? spouseClan.color : "#888"}">${spouse.name}</span>
+                                            <span class="spouse-clan">(${spouseClan ? spouseClan.name : "?"})</span>
+                                        </div>
+                                    `;
+                                }
+                            }
+                        }
+
+                        return `
+                            <div class="family-child ${married ? "married" : "unmarried"}">
+                                <div class="family-child-main">
+                                    ${RobloxAvatar.img(child.robloxId, 36, "family-avatar")}
+                                    <div class="family-person-info">
+                                        <span class="family-person-name">
+                                            ${child.name}
+                                            <span class="gender-icon ${genderClass}">${genderIcon}</span>
+                                        </span>
+                                        <span class="family-person-role">${married ? "Married" : "Unmarried"}</span>
+                                    </div>
+                                </div>
+                                ${marriageInfo}
+                            </div>
+                        `;
+                    }).join("")}
+                </div>
+            </div>
+        `;
+    },
+
+    renderAlliances(clanId, allies) {
+        const container = document.getElementById("dash-allies");
+
+        container.innerHTML = `
+            <h3>Marriage Alliances</h3>
+            ${allies.length === 0 ? '<div class="empty-state">No alliances — propose a marriage to form one</div>' :
+            allies.map(aId => {
+                const ally = GameState.getClan(aId);
+                const marriage = Diplomacy.getMarriageInfo(clanId, aId);
+                const allyFamily = CLAN_FAMILIES[aId];
+
+                let marriageDetail = "";
+                if (marriage && marriage.person1 && marriage.person2) {
+                    marriageDetail = `
+                        <div class="alliance-marriage-detail">
+                            <div class="marriage-couple">
+                                <div class="marriage-person">
+                                    ${RobloxAvatar.img(marriage.person1.robloxId, 36)}
+                                    <span class="person-name-small">${marriage.person1.name}</span>
+                                </div>
+                                <span class="marriage-heart-lg">&#10084;</span>
+                                <div class="marriage-person">
+                                    ${RobloxAvatar.img(marriage.person2.robloxId, 36)}
+                                    <span class="person-name-small">${marriage.person2.name}</span>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                return `
+                    <div class="ally-entry-card" style="border-left: 3px solid ${ally.color}">
+                        <div class="ally-header">
+                            ${allyFamily ? RobloxAvatar.img(allyFamily.leader.robloxId, 40, "ally-leader-avatar") : ""}
+                            <div class="ally-info">
+                                <span class="ally-name" style="color: ${ally.color}">${ally.japaneseName} ${ally.name}</span>
+                                ${allyFamily ? `<span class="ally-leader-name">${allyFamily.leader.name}</span>` : ""}
+                            </div>
+                        </div>
+                        ${marriageDetail}
+                        <div class="ally-actions">
+                            <button class="small-btn danger" onclick="Dashboard.dissolveMarriage('${clanId}', '${aId}')">
+                                Dissolve Marriage
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join("")}
+            <button class="action-btn" onclick="Dashboard.showMarriageModal()">
+                Propose Marriage
+            </button>
+        `;
+    },
+
+    renderProposals(clanId, pendingRequests, sentRequests) {
+        const container = document.getElementById("dash-pending-requests");
+
+        container.innerHTML = `
+            <h3>Marriage Proposals</h3>
+            ${pendingRequests.length === 0 && sentRequests.length === 0 ?
+            '<div class="empty-state">No pending proposals</div>' : ''}
+            ${pendingRequests.map(r => {
+                const fromClan = GameState.getClan(r.from);
+                const fromPerson = Diplomacy.getPerson(r.fromPerson);
+                const toPerson = Diplomacy.getPerson(r.toPerson);
+                return `
+                    <div class="request-entry pulse-border" style="border-left: 3px solid ${fromClan.color}">
+                        <div class="proposal-detail">
+                            <div class="proposal-people">
+                                ${fromPerson ? `
+                                    ${RobloxAvatar.img(fromPerson.robloxId, 30)}
+                                    <span>${fromPerson.name}</span>
+                                ` : ""}
+                                <span class="marriage-heart">&#10084;</span>
+                                ${toPerson ? `
+                                    <span>${toPerson.name}</span>
+                                    ${RobloxAvatar.img(toPerson.robloxId, 30)}
+                                ` : ""}
+                            </div>
+                            <div class="proposal-from">${fromClan.name} proposes marriage</div>
+                        </div>
+                        <div class="proposal-actions">
+                            <button class="small-btn commit" onclick="Dashboard.acceptMarriage('${r.id}')">Accept</button>
+                            <button class="small-btn cancel" onclick="Dashboard.rejectMarriage('${r.id}')">Reject</button>
+                        </div>
+                    </div>
+                `;
+            }).join("")}
+            ${sentRequests.map(r => {
+                const toClan = GameState.getClan(r.to);
+                const fromPerson = Diplomacy.getPerson(r.fromPerson);
+                const toPerson = Diplomacy.getPerson(r.toPerson);
+                return `
+                    <div class="request-entry sent">
+                        <div class="proposal-detail">
+                            <div class="proposal-people">
+                                ${fromPerson ? `${RobloxAvatar.img(fromPerson.robloxId, 24)} <span>${fromPerson.name}</span>` : ""}
+                                <span class="marriage-heart">&#10084;</span>
+                                ${toPerson ? `<span>${toPerson.name}</span> ${RobloxAvatar.img(toPerson.robloxId, 24)}` : ""}
+                            </div>
+                            <div class="proposal-from">Sent to ${toClan.name}</div>
+                        </div>
+                        <span class="status-pending">Pending...</span>
+                    </div>
+                `;
+            }).join("")}
+        `;
+    },
+
+    showMarriageModal() {
         const clanId = GameState.selectedClan;
         if (!clanId) return;
 
         const modal = document.getElementById("alliance-modal");
-        const select = document.getElementById("alliance-target-clan");
+        const myChildren = Diplomacy.getUnmarriedChildren(clanId);
 
-        // Show clans that aren't already allied and don't have pending requests
+        if (myChildren.length === 0) {
+            Notifications.show("No unmarried children available for marriage", "error");
+            return;
+        }
+
+        // Get clans that aren't already allied and have unmarried children
         const allies = GameState.getAllies(clanId);
-        const options = Object.values(GameState.clans)
+        const availableClans = Object.values(GameState.clans)
             .filter(c => c.id !== clanId && !allies.includes(c.id))
-            .map(c => `<option value="${c.id}">${c.japaneseName} ${c.name}</option>`)
-            .join("");
+            .filter(c => Diplomacy.getUnmarriedChildren(c.id).length > 0);
 
-        select.innerHTML = options;
+        if (availableClans.length === 0) {
+            Notifications.show("No clans available for marriage alliance", "error");
+            return;
+        }
+
+        // Build modal content
+        const content = modal.querySelector(".modal-content");
+        content.innerHTML = `
+            <h3>Propose Marriage</h3>
+            <div class="marriage-form">
+                <div class="form-group">
+                    <label>Your child:</label>
+                    <select id="marriage-my-child">
+                        ${myChildren.map(c => {
+                            const icon = c.gender === "male" ? "♂" : "♀";
+                            return `<option value="${c.id}">${icon} ${c.name}</option>`;
+                        }).join("")}
+                    </select>
+                    <div id="marriage-my-preview" class="person-preview"></div>
+                </div>
+                <div class="form-group">
+                    <label>Propose to clan:</label>
+                    <select id="marriage-target-clan">
+                        ${availableClans.map(c =>
+                            `<option value="${c.id}">${c.japaneseName} ${c.name}</option>`
+                        ).join("")}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Their child:</label>
+                    <select id="marriage-their-child"></select>
+                    <div id="marriage-their-preview" class="person-preview"></div>
+                </div>
+            </div>
+            <div class="modal-buttons">
+                <button id="marriage-send" class="modal-btn confirm">Send Proposal</button>
+                <button id="marriage-cancel" class="modal-btn cancel">Cancel</button>
+            </div>
+        `;
+
+        const updateTheirChildren = () => {
+            const targetClanId = document.getElementById("marriage-target-clan").value;
+            const theirChildren = Diplomacy.getUnmarriedChildren(targetClanId);
+            document.getElementById("marriage-their-child").innerHTML =
+                theirChildren.map(c => {
+                    const icon = c.gender === "male" ? "♂" : "♀";
+                    return `<option value="${c.id}">${icon} ${c.name}</option>`;
+                }).join("");
+            updateTheirPreview();
+        };
+
+        const updateMyPreview = () => {
+            const personId = document.getElementById("marriage-my-child").value;
+            const person = Diplomacy.getPerson(personId);
+            const preview = document.getElementById("marriage-my-preview");
+            if (person) {
+                preview.innerHTML = `${RobloxAvatar.img(person.robloxId, 40)} <span>${person.name}</span>`;
+            }
+        };
+
+        const updateTheirPreview = () => {
+            const personId = document.getElementById("marriage-their-child").value;
+            const person = personId ? Diplomacy.getPerson(personId) : null;
+            const preview = document.getElementById("marriage-their-preview");
+            if (person) {
+                preview.innerHTML = `${RobloxAvatar.img(person.robloxId, 40)} <span>${person.name}</span>`;
+            } else {
+                preview.innerHTML = "";
+            }
+        };
+
         modal.classList.remove("hidden");
 
-        document.getElementById("alliance-send").onclick = () => {
-            const targetId = select.value;
-            if (!targetId) return;
-            const result = Diplomacy.requestAlliance(clanId, targetId);
-            if (result.success) {
-                Notifications.show("Alliance request sent!", "success");
-                this.render();
-            } else {
-                Notifications.show(result.error, "error");
-            }
-            modal.classList.add("hidden");
-        };
+        // Set up event handlers after modal is visible
+        setTimeout(() => {
+            document.getElementById("marriage-target-clan").addEventListener("change", updateTheirChildren);
+            document.getElementById("marriage-my-child").addEventListener("change", updateMyPreview);
+            document.getElementById("marriage-their-child").addEventListener("change", updateTheirPreview);
 
-        document.getElementById("alliance-cancel").onclick = () => {
-            modal.classList.add("hidden");
-        };
+            updateTheirChildren();
+            updateMyPreview();
+
+            document.getElementById("marriage-send").onclick = () => {
+                const myChildId = document.getElementById("marriage-my-child").value;
+                const targetClanId = document.getElementById("marriage-target-clan").value;
+                const theirChildId = document.getElementById("marriage-their-child").value;
+
+                if (!myChildId || !targetClanId || !theirChildId) {
+                    Notifications.show("Select all fields", "error");
+                    return;
+                }
+
+                const result = Diplomacy.proposeMarriage(clanId, myChildId, targetClanId, theirChildId);
+                if (result.success) {
+                    Notifications.show("Marriage proposal sent!", "success");
+                    this.render();
+                } else {
+                    Notifications.show(result.error, "error");
+                }
+                modal.classList.add("hidden");
+            };
+
+            document.getElementById("marriage-cancel").onclick = () => {
+                modal.classList.add("hidden");
+            };
+        }, 0);
     },
 
-    acceptAlliance(requestId) {
-        const result = Diplomacy.acceptAlliance(requestId);
+    acceptMarriage(requestId) {
+        const result = Diplomacy.acceptMarriage(requestId);
         if (result.success) {
             this.render();
         } else {
@@ -176,8 +415,8 @@ const Dashboard = {
         }
     },
 
-    rejectAlliance(requestId) {
-        const result = Diplomacy.rejectAlliance(requestId);
+    rejectMarriage(requestId) {
+        const result = Diplomacy.rejectMarriage(requestId);
         if (result.success) {
             this.render();
         } else {
@@ -185,9 +424,9 @@ const Dashboard = {
         }
     },
 
-    breakAlliance(clan1, clan2) {
-        if (!confirm("Break alliance? This cannot be undone.")) return;
-        const result = Diplomacy.breakAlliance(clan1, clan2);
+    dissolveMarriage(clan1, clan2) {
+        if (!confirm("Dissolve this marriage? The alliance will be broken.")) return;
+        const result = Diplomacy.dissolveMarriage(clan1, clan2);
         if (result.success) {
             this.render();
         }
