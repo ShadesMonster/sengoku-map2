@@ -105,7 +105,7 @@ const App = {
         const list = document.getElementById("legend-list");
         list.innerHTML = Object.values(GameState.clans).map(c => {
             const provinces = GameState.getOwnedProvinces(c.id).length;
-            const troops = GameState.getTotalTroops(c.id);
+            const troops = GameState.getTotalTroops(c.id) + ArmySystem.getTroopsInBattle(c.id);
             const isSelected = c.id === GameState.selectedClan;
             return `
                 <div class="legend-entry ${isSelected ? 'selected' : ''}">
@@ -113,7 +113,7 @@ const App = {
                               document.getElementById('clan-selector').dispatchEvent(new Event('change'))"></span>
                     <span class="legend-name" onclick="document.getElementById('clan-selector').value='${c.id}';
                               document.getElementById('clan-selector').dispatchEvent(new Event('change'))">${c.japaneseName} ${c.name}</span>
-                    <span class="legend-stats">${provinces}P ${troops}T</span>
+                    <span class="legend-stats">${provinces}P ${troops}A</span>
                     <span class="legend-view" onclick="event.stopPropagation(); Dashboard.viewClan('${c.id}')" title="View clan">&#128065;</span>
                 </div>
             `;

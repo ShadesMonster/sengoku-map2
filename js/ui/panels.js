@@ -63,7 +63,7 @@ const Panels = {
                 return `
                     <div class="army-entry" style="border-left: 3px solid ${a.clan.color}">
                         <span class="army-clan">${a.clan.japaneseName} ${a.clan.name}</span>
-                        <span class="army-count">${a.count.toLocaleString()} soldiers <span class="player-equiv">(${players} men)</span></span>
+                        <span class="army-count">${a.count.toLocaleString()} ashigaru <span class="player-equiv">(${players} men)</span></span>
                     </div>
                 `;
             }).join("");
@@ -77,7 +77,7 @@ const Panels = {
                 return `
                     <div class="army-entry in-battle" style="border-left: 3px solid ${bt.clan.color}">
                         <span class="army-clan">${bt.clan.japaneseName} ${bt.clan.name} <span class="battle-side-tag ${bt.side}">${sideLabel}</span></span>
-                        <span class="army-count">${bt.count.toLocaleString()} soldiers <span class="player-equiv">(${players} men)</span></span>
+                        <span class="army-count">${bt.count.toLocaleString()} ashigaru <span class="player-equiv">(${players} men)</span></span>
                     </div>
                 `;
             }).join("");
@@ -128,7 +128,7 @@ const Panels = {
                 if (available >= TROOP_UNIT) {
                     const players = available / TROOP_RATIO;
                     container.appendChild(this.createButton(
-                        `Move Army (${available.toLocaleString()} soldiers / ${players} men)`,
+                        `Move Army (${available.toLocaleString()} ashigaru / ${players} men)`,
                         "action-btn move-army",
                         () => MapInteraction.enterMoveMode(provinceId)
                     ));
@@ -216,19 +216,19 @@ const Panels = {
         const rallyInfo = ArmySystem.getRallyInfo(clanId);
         const maxAvail = Math.floor(rallyInfo.available / TROOP_UNIT) * TROOP_UNIT;
 
-        let statusLine = `Available: ${rallyInfo.available.toLocaleString()} soldiers (${rallyInfo.current.toLocaleString()}/${rallyInfo.cap.toLocaleString()})`;
+        let statusLine = `Available: ${rallyInfo.available.toLocaleString()} ashigaru (${rallyInfo.current.toLocaleString()}/${rallyInfo.cap.toLocaleString()})`;
         if (rallyInfo.inBattle > 0) {
-            statusLine += `\nIn Battle: ${rallyInfo.inBattle.toLocaleString()} soldiers`;
+            statusLine += `\nIn Battle: ${rallyInfo.inBattle.toLocaleString()} ashigaru`;
         }
         if (rallyInfo.casualties > 0) {
-            statusLine += `\nRecovering: ${rallyInfo.casualties.toLocaleString()} soldiers (unavailable until next week)`;
+            statusLine += `\nRecovering: ${rallyInfo.casualties.toLocaleString()} ashigaru (unavailable until next week)`;
         }
 
         const amount = prompt(
             `Raise Levy in ${PROVINCE_MAP[provinceId].name}\n` +
             `${statusLine}\n` +
             `Must raise in units of ${TROOP_UNIT} (1 unit = ${TROOP_UNIT / TROOP_RATIO} men)\n` +
-            `How many soldiers?`,
+            `How many ashigaru?`,
             Math.min(TROOP_UNIT, maxAvail)
         );
 
@@ -246,7 +246,7 @@ const Panels = {
         const result = ArmySystem.raiseLevy(clanId, provinceId, num);
         if (result.success) {
             const players = result.raised / TROOP_RATIO;
-            Notifications.show(`Raised ${result.raised.toLocaleString()} soldiers (${players} men)!`, "success");
+            Notifications.show(`Raised ${result.raised.toLocaleString()} ashigaru (${players} men)!`, "success");
             MapRenderer.update();
             this.showProvincePanel(provinceId);
         } else {

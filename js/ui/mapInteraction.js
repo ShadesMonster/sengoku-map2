@@ -217,10 +217,10 @@ const MapInteraction = {
 
         const updateMoveDisplay = (val) => {
             const players = val / TROOP_RATIO;
-            countDisplay.innerHTML = `${val.toLocaleString()} soldiers <span class="player-equiv">(= ${players} men)</span>`;
+            countDisplay.innerHTML = `${val.toLocaleString()} ashigaru <span class="player-equiv">(= ${players} men)</span>`;
             const confirmBtn = document.getElementById("move-confirm");
             if (confirmBtn) {
-                confirmBtn.textContent = `Move ${val.toLocaleString()} soldiers (${players} men) to ${to.name}`;
+                confirmBtn.textContent = `Move ${val.toLocaleString()} ashigaru (${players} men) to ${to.name}`;
             }
         };
         updateMoveDisplay(maxSnapped);
@@ -231,7 +231,7 @@ const MapInteraction = {
         const targetsDiv = document.getElementById("move-targets");
         targetsDiv.innerHTML = `
             <button class="modal-btn confirm" id="move-confirm">
-                Move ${maxSnapped.toLocaleString()} soldiers (${maxSnapped / TROOP_RATIO} men) to ${to.name}
+                Move ${maxSnapped.toLocaleString()} ashigaru (${maxSnapped / TROOP_RATIO} men) to ${to.name}
             </button>
         `;
 
@@ -240,7 +240,7 @@ const MapInteraction = {
             const result = MoveSystem.createOrder(clanId, this.moveFrom, toProvinceId, troops);
             if (result.success) {
                 const players = troops / TROOP_RATIO;
-                Notifications.show(`Order created: ${troops.toLocaleString()} soldiers (${players} men) → ${to.name}`, "success");
+                Notifications.show(`Order created: ${troops.toLocaleString()} ashigaru (${players} men) → ${to.name}`, "success");
                 MapRenderer.update();
                 if (this.selectedProvince) Panels.showProvincePanel(this.selectedProvince);
             } else {

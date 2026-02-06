@@ -80,7 +80,7 @@ const Admin = {
 
         list.innerHTML = clans.map(c => {
             const provinces = GameState.getOwnedProvinces(c.id).length;
-            const troops = GameState.getTotalTroops(c.id);
+            const troops = GameState.getTotalTroops(c.id) + ArmySystem.getTroopsInBattle(c.id);
             return `
                 <div class="admin-clan-entry" style="border-left: 3px solid ${c.color}">
                     <div class="clan-info">
