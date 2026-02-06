@@ -63,13 +63,9 @@ const BattleSystem = {
 
     // Get battle type icon
     getBattleIcon(terrain) {
-        const icons = {
-            castle: "\u{1F3EF}",
-            village: "\u{1F3D8}\uFE0F",
-            plains: "\u2694\uFE0F",
-            mountain: "\u{1F38C}"
-        };
-        return icons[terrain] || "\u2694\uFE0F";
+        if (terrain === "castle") return CASTLE_SIEGE.icon;
+        const config = TERRAIN_CONFIG[terrain];
+        return config ? config.icon : "\u2694\uFE0F";
     },
 
     // Generate a bracket tournament for multi-clan battles

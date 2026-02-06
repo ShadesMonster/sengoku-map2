@@ -182,12 +182,18 @@ const MoveSystem = {
                 const provData = PROVINCE_MAP[provId];
                 const terrain = TERRAIN_CONFIG[provData.terrain];
 
+                // Castle Siege triggers when fighting at a clan's capital province
+                const owner = province.owner;
+                const ownerClan = owner ? GameState.getClan(owner) : null;
+                const isCastleSiege = ownerClan && ownerClan.homeProvince === provId;
+                const battleType = isCastleSiege ? "Castle Siege" : terrain.battleType;
+
                 const battle = {
                     id: Date.now() + Math.random(),
                     province: provId,
                     provinceName: provData.name,
-                    battleType: terrain.battleType,
-                    terrain: provData.terrain,
+                    battleType,
+                    terrain: isCastleSiege ? "castle" : provData.terrain,
                     participants: {},
                     status: "pending", // "pending", "resolved"
                     winner: null,

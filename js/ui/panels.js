@@ -23,10 +23,13 @@ const Panels = {
         document.getElementById("panel-province-name").textContent =
             `${prov.japaneseName} ${prov.name}`;
 
-        // Terrain
+        // Terrain - show Castle Siege if this is the owner's capital
         const terrain = TERRAIN_CONFIG[prov.terrain];
-        document.getElementById("panel-terrain-value").textContent =
-            `${terrain.icon} ${terrain.name}`;
+        const ownerClan = state.owner ? GameState.getClan(state.owner) : null;
+        const isCapital = ownerClan && ownerClan.homeProvince === provinceId;
+        document.getElementById("panel-terrain-value").textContent = isCapital
+            ? `${CASTLE_SIEGE.icon} ${terrain.name} (Capital - Castle Siege)`
+            : `${terrain.icon} ${terrain.name}`;
 
         // Owner
         const ownerSpan = document.getElementById("panel-owner-value");
