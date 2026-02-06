@@ -50,11 +50,11 @@ const Dashboard = {
                 </div>
                 <div class="stat-card">
                     <div class="stat-value">${totalTroops.toLocaleString()}</div>
-                    <div class="stat-label">Total Troops</div>
+                    <div class="stat-label">Soldiers <span class="player-equiv">(${totalTroops / TROOP_RATIO} men)</span></div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-value">${clan.rallyCap.toLocaleString()}</div>
-                    <div class="stat-label">Rally Cap</div>
+                    <div class="stat-label">Rally Cap <span class="player-equiv">(${clan.rallyCap / TROOP_RATIO} men)</span></div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-value">${allies.length}</div>
@@ -63,7 +63,7 @@ const Dashboard = {
             </div>
             <div class="rally-bar">
                 <div class="rally-fill" style="width: ${Math.min(100, (totalTroops / clan.rallyCap) * 100)}%"></div>
-                <span class="rally-text">${totalTroops} / ${clan.rallyCap} troops</span>
+                <span class="rally-text">${totalTroops.toLocaleString()} / ${clan.rallyCap.toLocaleString()} soldiers (${totalTroops / TROOP_RATIO} / ${clan.rallyCap / TROOP_RATIO} men)</span>
             </div>
         `;
 
@@ -124,7 +124,7 @@ const Dashboard = {
                 const to = PROVINCE_MAP[o.toProvince];
                 return `
                     <div class="order-entry ${o.status}">
-                        <span>${o.troops} troops: ${from.name} → ${to.name}</span>
+                        <span>${o.troops.toLocaleString()} soldiers <span class="player-equiv">(${o.troops / TROOP_RATIO} men)</span>: ${from.name} → ${to.name}</span>
                         <span class="order-status ${o.status}">${o.status}</span>
                     </div>
                 `;

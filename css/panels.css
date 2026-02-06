@@ -501,6 +501,13 @@
     opacity: 0.85;
 }
 
+/* Player equivalent label */
+.player-equiv {
+    color: var(--text-muted);
+    font-size: 11px;
+    font-weight: normal;
+}
+
 /* Empty state */
 .empty-state {
     padding: 12px;

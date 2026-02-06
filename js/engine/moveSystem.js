@@ -28,6 +28,9 @@ const MoveSystem = {
         if (troops <= 0) {
             return { success: false, error: "Must move at least 1 troop" };
         }
+        if (troops % TROOP_UNIT !== 0) {
+            return { success: false, error: `Must move in units of ${TROOP_UNIT}` };
+        }
 
         const order = {
             id: Date.now() + Math.random(),

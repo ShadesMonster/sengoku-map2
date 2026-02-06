@@ -208,13 +208,22 @@ const MapInteraction = {
         const to = PROVINCE_MAP[toProvinceId];
 
         fromInfo.innerHTML = `<strong>${from.name}</strong> → <strong>${to.name}</strong>`;
-        slider.max = canMove;
-        slider.value = canMove;
-        countDisplay.textContent = canMove;
+        // Snap to units of TROOP_UNIT
+        const maxSnapped = Math.floor(canMove / TROOP_UNIT) * TROOP_UNIT;
+        slider.min = TROOP_UNIT;
+        slider.max = maxSnapped;
+        slider.step = TROOP_UNIT;
+        slider.value = maxSnapped;
 
-        slider.oninput = () => {
-            countDisplay.textContent = slider.value;
+        const updateMoveDisplay = (val) => {
+            const players = val / TROOP_RATIO;
+            countDisplay.innerHTML = `${val.toLocaleString()} soldiers <span class="player-equiv">(= ${players} men)</span>`;
+            const confirmBtn = document.getElementById("move-confirm");
+            if (confirmBtn) {
+                confirmBtn.textContent = `Move ${val.toLocaleString()} soldiers (${players} men) to ${to.name}`;
+            }
         };
+        updateMoveDisplay(maxSnapped);
 
         modal.classList.remove("hidden");
 
@@ -222,7 +231,7 @@ const MapInteraction = {
         const targetsDiv = document.getElementById("move-targets");
         targetsDiv.innerHTML = `
             <button class="modal-btn confirm" id="move-confirm">
-                Move ${canMove} troops to ${to.name}
+                Move ${maxSnapped.toLocaleString()} soldiers (${maxSnapped / TROOP_RATIO} men) to ${to.name}
             </button>
         `;
 
@@ -230,7 +239,8 @@ const MapInteraction = {
             const troops = parseInt(slider.value);
             const result = MoveSystem.createOrder(clanId, this.moveFrom, toProvinceId, troops);
             if (result.success) {
-                Notifications.show(`Order created: ${troops} troops → ${to.name}`, "success");
+                const players = troops / TROOP_RATIO;
+                Notifications.show(`Order created: ${troops.toLocaleString()} soldiers (${players} men) → ${to.name}`, "success");
                 MapRenderer.update();
                 if (this.selectedProvince) Panels.showProvincePanel(this.selectedProvince);
             } else {
@@ -241,9 +251,7 @@ const MapInteraction = {
         };
 
         slider.oninput = () => {
-            countDisplay.textContent = slider.value;
-            document.getElementById("move-confirm").textContent =
-                `Move ${slider.value} troops to ${to.name}`;
+            updateMoveDisplay(parseInt(slider.value));
         };
 
         document.getElementById("move-cancel").onclick = () => {

@@ -8,6 +8,10 @@ const ArmySystem = {
         if (province.owner !== clanId) return { success: false, error: "You don't own this province" };
         if (GameState.phase !== "planning") return { success: false, error: "Can only raise levies during Planning Phase" };
 
+        if (amount % TROOP_UNIT !== 0) {
+            return { success: false, error: `Must raise in units of ${TROOP_UNIT}` };
+        }
+
         const currentTotal = GameState.getTotalTroops(clanId);
         const maxRaise = clan.rallyCap - currentTotal;
         if (maxRaise <= 0) return { success: false, error: `Rally Cap reached (${clan.rallyCap})` };

@@ -1,11 +1,12 @@
 // Default clan data for Sengoku-era major clans
+// All clans start with 6000 soldiers (= 60 players at 1:100 ratio)
 const DEFAULT_CLANS = [
     {
         id: "oda",
         name: "Oda",
         japaneseName: "織田",
         color: "#cc3333",
-        rallyCap: 3000,
+        rallyCap: 10000,
         homeProvince: "owari"
     },
     {
@@ -13,7 +14,7 @@ const DEFAULT_CLANS = [
         name: "Takeda",
         japaneseName: "武田",
         color: "#4444cc",
-        rallyCap: 2500,
+        rallyCap: 10000,
         homeProvince: "kai"
     },
     {
@@ -21,7 +22,7 @@ const DEFAULT_CLANS = [
         name: "Uesugi",
         japaneseName: "上杉",
         color: "#22aa44",
-        rallyCap: 2500,
+        rallyCap: 10000,
         homeProvince: "echigo"
     },
     {
@@ -29,7 +30,7 @@ const DEFAULT_CLANS = [
         name: "Tokugawa",
         japaneseName: "徳川",
         color: "#ddaa00",
-        rallyCap: 2000,
+        rallyCap: 10000,
         homeProvince: "mikawa"
     },
     {
@@ -37,7 +38,7 @@ const DEFAULT_CLANS = [
         name: "Mori",
         japaneseName: "毛利",
         color: "#aa44aa",
-        rallyCap: 2500,
+        rallyCap: 10000,
         homeProvince: "aki"
     },
     {
@@ -45,7 +46,7 @@ const DEFAULT_CLANS = [
         name: "Shimazu",
         japaneseName: "島津",
         color: "#ff6600",
-        rallyCap: 2000,
+        rallyCap: 10000,
         homeProvince: "satsuma"
     },
     {
@@ -53,7 +54,7 @@ const DEFAULT_CLANS = [
         name: "Hojo",
         japaneseName: "北条",
         color: "#0088cc",
-        rallyCap: 2500,
+        rallyCap: 10000,
         homeProvince: "sagami"
     },
     {
@@ -61,7 +62,7 @@ const DEFAULT_CLANS = [
         name: "Chosokabe",
         japaneseName: "長宗我部",
         color: "#44ccaa",
-        rallyCap: 1500,
+        rallyCap: 10000,
         homeProvince: "tosa"
     },
     {
@@ -69,7 +70,7 @@ const DEFAULT_CLANS = [
         name: "Date",
         japaneseName: "伊達",
         color: "#cc44cc",
-        rallyCap: 2000,
+        rallyCap: 10000,
         homeProvince: "mutsu"
     },
     {
@@ -77,7 +78,9 @@ const DEFAULT_CLANS = [
         name: "Imagawa",
         japaneseName: "今川",
         color: "#88cc44",
-        rallyCap: 1500,
+        rallyCap: 10000,
         homeProvince: "suruga"
     }
 ];
+
+const STARTING_TROOPS = 6000;

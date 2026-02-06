@@ -28,7 +28,7 @@ const GameState = {
     },
 
     // State version - increment when province/map data changes to force reset
-    STATE_VERSION: 3,
+    STATE_VERSION: 4,
 
     // Initialize game
     init() {
@@ -69,7 +69,7 @@ const GameState = {
                 color: c.color,
                 rallyCap: c.rallyCap,
                 homeProvince: c.homeProvince,
-                totalTroops: 500
+                totalTroops: STARTING_TROOPS
             };
         });
 
@@ -81,11 +81,11 @@ const GameState = {
             };
         });
 
-        // Place starting armies
+        // Place starting armies at each clan's home province
         DEFAULT_CLANS.forEach(c => {
             if (this.provinces[c.homeProvince]) {
                 this.provinces[c.homeProvince].owner = c.id;
-                this.provinces[c.homeProvince].armies[c.id] = 500;
+                this.provinces[c.homeProvince].armies[c.id] = STARTING_TROOPS;
             }
         });
 

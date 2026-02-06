@@ -59,12 +59,15 @@ const Panels = {
             return;
         }
 
-        list.innerHTML = armies.map(a => `
-            <div class="army-entry" style="border-left: 3px solid ${a.clan.color}">
-                <span class="army-clan">${a.clan.japaneseName} ${a.clan.name}</span>
-                <span class="army-count">${a.count.toLocaleString()} troops</span>
-            </div>
-        `).join("");
+        list.innerHTML = armies.map(a => {
+            const players = a.count / TROOP_RATIO;
+            return `
+                <div class="army-entry" style="border-left: 3px solid ${a.clan.color}">
+                    <span class="army-clan">${a.clan.japaneseName} ${a.clan.name}</span>
+                    <span class="army-count">${a.count.toLocaleString()} soldiers <span class="player-equiv">(${players} men)</span></span>
+                </div>
+            `;
+        }).join("");
     },
 
     renderActions(provinceId) {
@@ -88,7 +91,7 @@ const Panels = {
             if (ownsProvince) {
                 const rallyInfo = ArmySystem.getRallyInfo(clanId);
                 const btn = this.createButton(
-                    `Raise Levy (${rallyInfo.available} available)`,
+                    `Raise Levy (${rallyInfo.available.toLocaleString()} available)`,
                     "action-btn raise-levy",
                     () => this.showRaiseLevyDialog(clanId, provinceId)
                 );
@@ -102,9 +105,10 @@ const Panels = {
                     .reduce((sum, o) => sum + o.troops, 0);
                 const available = ArmySystem.getArmyInProvince(clanId, provinceId) - committed;
 
-                if (available > 0) {
+                if (available >= TROOP_UNIT) {
+                    const players = available / TROOP_RATIO;
                     container.appendChild(this.createButton(
-                        `Move Army (${available} available)`,
+                        `Move Army (${available.toLocaleString()} soldiers / ${players} men)`,
                         "action-btn move-army",
                         () => MapInteraction.enterMoveMode(provinceId)
                     ));
@@ -135,8 +139,9 @@ const Panels = {
                 const to = PROVINCE_MAP[order.toProvince];
                 const orderEl = document.createElement("div");
                 orderEl.className = `order-entry ${order.status}`;
+                const orderPlayers = order.troops / TROOP_RATIO;
                 orderEl.innerHTML = `
-                    <span class="order-info">${order.troops} → ${to.name}</span>
+                    <span class="order-info">${order.troops.toLocaleString()} (${orderPlayers} men) → ${to.name}</span>
                     <span class="order-status ${order.status}">${order.status}</span>
                     <div class="order-actions">
                         ${order.status === "pending" ? `
@@ -189,11 +194,13 @@ const Panels = {
 
     showRaiseLevyDialog(clanId, provinceId) {
         const rallyInfo = ArmySystem.getRallyInfo(clanId);
+        const maxAvail = Math.floor(rallyInfo.available / TROOP_UNIT) * TROOP_UNIT;
         const amount = prompt(
             `Raise Levy in ${PROVINCE_MAP[provinceId].name}\n` +
-            `Available: ${rallyInfo.available} (${rallyInfo.current}/${rallyInfo.cap})\n` +
-            `How many troops?`,
-            Math.min(100, rallyInfo.available)
+            `Available: ${rallyInfo.available.toLocaleString()} soldiers (${rallyInfo.current.toLocaleString()}/${rallyInfo.cap.toLocaleString()})\n` +
+            `Must raise in units of ${TROOP_UNIT} (1 unit = ${TROOP_UNIT / TROOP_RATIO} men)\n` +
+            `How many soldiers?`,
+            Math.min(TROOP_UNIT, maxAvail)
         );
 
         if (amount === null) return;
@@ -202,10 +209,15 @@ const Panels = {
             Notifications.show("Invalid number", "error");
             return;
         }
+        if (num % TROOP_UNIT !== 0) {
+            Notifications.show(`Must raise in units of ${TROOP_UNIT}`, "error");
+            return;
+        }
 
         const result = ArmySystem.raiseLevy(clanId, provinceId, num);
         if (result.success) {
-            Notifications.show(`Raised ${result.raised} levies!`, "success");
+            const players = result.raised / TROOP_RATIO;
+            Notifications.show(`Raised ${result.raised.toLocaleString()} soldiers (${players} men)!`, "success");
             MapRenderer.update();
             this.showProvincePanel(provinceId);
         } else {

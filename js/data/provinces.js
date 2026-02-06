@@ -3,6 +3,10 @@
 // pathIds = SVG element IDs from the map file
 // center = computed bounding-box center of each path
 
+// Army scale: 1 player = 100 soldiers on the map
+const TROOP_RATIO = 100;
+const TROOP_UNIT = 100; // minimum movement/levy unit
+
 const PROVINCES = [
     // === KINAI (Capital Region) ===
     { id: "yamashiro", name: "Yamashiro", japaneseName: "山城", pathIds: ["path23012"], center: { x: 312.6, y: 540.6 }, terrain: "mountain", neighbors: ["yamato", "settsu", "kawachi", "omi", "tanba", "iga"] },
