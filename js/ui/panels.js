@@ -53,21 +53,41 @@ const Panels = {
     renderArmiesList(provinceId) {
         const list = document.getElementById("panel-armies-list");
         const armies = ArmySystem.getArmiesInProvince(provinceId);
+        const battleTroops = ArmySystem.getBattleTroopsAtProvince(provinceId);
 
-        if (armies.length === 0) {
-            list.innerHTML = '<div class="empty-state">No armies present</div>';
-            return;
+        let html = "";
+
+        if (armies.length > 0) {
+            html += armies.map(a => {
+                const players = a.count / TROOP_RATIO;
+                return `
+                    <div class="army-entry" style="border-left: 3px solid ${a.clan.color}">
+                        <span class="army-clan">${a.clan.japaneseName} ${a.clan.name}</span>
+                        <span class="army-count">${a.count.toLocaleString()} soldiers <span class="player-equiv">(${players} men)</span></span>
+                    </div>
+                `;
+            }).join("");
         }
 
-        list.innerHTML = armies.map(a => {
-            const players = a.count / TROOP_RATIO;
-            return `
-                <div class="army-entry" style="border-left: 3px solid ${a.clan.color}">
-                    <span class="army-clan">${a.clan.japaneseName} ${a.clan.name}</span>
-                    <span class="army-count">${a.count.toLocaleString()} soldiers <span class="player-equiv">(${players} men)</span></span>
-                </div>
-            `;
-        }).join("");
+        if (battleTroops.length > 0) {
+            html += '<div class="battle-troops-header">⚔ In Battle</div>';
+            html += battleTroops.map(bt => {
+                const players = bt.count / TROOP_RATIO;
+                const sideLabel = bt.side === "attacker" ? "ATK" : "DEF";
+                return `
+                    <div class="army-entry in-battle" style="border-left: 3px solid ${bt.clan.color}">
+                        <span class="army-clan">${bt.clan.japaneseName} ${bt.clan.name} <span class="battle-side-tag ${bt.side}">${sideLabel}</span></span>
+                        <span class="army-count">${bt.count.toLocaleString()} soldiers <span class="player-equiv">(${players} men)</span></span>
+                    </div>
+                `;
+            }).join("");
+        }
+
+        if (!html) {
+            html = '<div class="empty-state">No armies present</div>';
+        }
+
+        list.innerHTML = html;
     },
 
     renderActions(provinceId) {
@@ -195,9 +215,18 @@ const Panels = {
     showRaiseLevyDialog(clanId, provinceId) {
         const rallyInfo = ArmySystem.getRallyInfo(clanId);
         const maxAvail = Math.floor(rallyInfo.available / TROOP_UNIT) * TROOP_UNIT;
+
+        let statusLine = `Available: ${rallyInfo.available.toLocaleString()} soldiers (${rallyInfo.current.toLocaleString()}/${rallyInfo.cap.toLocaleString()})`;
+        if (rallyInfo.inBattle > 0) {
+            statusLine += `\nIn Battle: ${rallyInfo.inBattle.toLocaleString()} soldiers`;
+        }
+        if (rallyInfo.casualties > 0) {
+            statusLine += `\nRecovering: ${rallyInfo.casualties.toLocaleString()} soldiers (unavailable until next week)`;
+        }
+
         const amount = prompt(
             `Raise Levy in ${PROVINCE_MAP[provinceId].name}\n` +
-            `Available: ${rallyInfo.available.toLocaleString()} soldiers (${rallyInfo.current.toLocaleString()}/${rallyInfo.cap.toLocaleString()})\n` +
+            `${statusLine}\n` +
             `Must raise in units of ${TROOP_UNIT} (1 unit = ${TROOP_UNIT / TROOP_RATIO} men)\n` +
             `How many soldiers?`,
             Math.min(TROOP_UNIT, maxAvail)

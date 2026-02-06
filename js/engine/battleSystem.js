@@ -197,10 +197,13 @@ const BattleSystem = {
         const province = GameState.provinces[battle.province];
         const provData = PROVINCE_MAP[battle.province];
 
-        // Losers lose ALL troops (routed)
+        // Losers lose ALL troops (routed) - add to casualty recovery
         const loserNames = losers.clans.map(c => GameState.getClan(c).name);
+        for (const [clanId, troops] of Object.entries(losers.armyBreakdown)) {
+            ArmySystem.addCasualties(clanId, troops);
+        }
 
-        // Winner takes 30% casualties
+        // Winner takes 30% casualties - add to casualty recovery
         const casualtyRate = 0.3;
         const winnerSurviving = {};
         let totalCasualties = 0;
@@ -208,6 +211,7 @@ const BattleSystem = {
             const casualties = Math.floor(troops * casualtyRate);
             totalCasualties += casualties;
             winnerSurviving[clanId] = troops - casualties;
+            ArmySystem.addCasualties(clanId, casualties);
         }
 
         const winnerNames = winners.clans.map(c => GameState.getClan(c).name);

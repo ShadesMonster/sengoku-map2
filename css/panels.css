@@ -85,6 +85,39 @@
 .army-clan { font-weight: 600; }
 .army-count { color: var(--text-secondary); }
 
+/* Battle troops header */
+.battle-troops-header {
+    font-size: 11px;
+    color: var(--accent-red);
+    font-weight: bold;
+    padding: 6px 0 2px;
+    border-top: 1px solid var(--border);
+    margin-top: 4px;
+}
+
+.army-entry.in-battle {
+    opacity: 0.7;
+    background: rgba(231, 76, 60, 0.08);
+}
+
+.battle-side-tag {
+    font-size: 9px;
+    padding: 1px 4px;
+    border-radius: 3px;
+    font-weight: bold;
+    letter-spacing: 0.5px;
+}
+
+.battle-side-tag.attacker {
+    background: rgba(231, 76, 60, 0.2);
+    color: #e74c3c;
+}
+
+.battle-side-tag.defender {
+    background: rgba(52, 152, 219, 0.2);
+    color: #3498db;
+}
+
 /* Neighbor entries */
 .neighbor-entry {
     display: flex;

@@ -82,43 +82,81 @@ const MapRenderer = {
             if (!state) return;
 
             const armies = Object.entries(state.armies).filter(([, count]) => count > 0);
-            if (armies.length === 0) return;
+            const battleTroops = ArmySystem.getBattleTroopsAtProvince(prov.id);
+            const hasBattle = battleTroops.length > 0;
+
+            if (armies.length === 0 && !hasBattle) return;
 
             const baseX = prov.center.x;
             const baseY = prov.center.y + 8;
 
+            // Draw normal (on-ground) armies
             armies.forEach(([clanId, count], i) => {
                 const clan = GameState.getClan(clanId);
                 if (!clan) return;
 
                 const offsetX = (i - (armies.length - 1) / 2) * 12;
-
-                const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-                rect.setAttribute("x", baseX + offsetX - 6);
-                rect.setAttribute("y", baseY - 4);
-                rect.setAttribute("width", "12");
-                rect.setAttribute("height", "8");
-                rect.setAttribute("rx", "1.5");
-                rect.setAttribute("fill", clan.color);
-                rect.setAttribute("stroke", "#000");
-                rect.setAttribute("stroke-width", "0.3");
-                rect.setAttribute("opacity", "0.9");
-
-                const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
-                text.setAttribute("x", baseX + offsetX);
-                text.setAttribute("y", baseY + 2);
-                text.setAttribute("text-anchor", "middle");
-                text.setAttribute("font-size", "4.5");
-                text.setAttribute("font-weight", "bold");
-                text.setAttribute("fill", "#fff");
-                text.setAttribute("pointer-events", "none");
-                text.setAttribute("font-family", "sans-serif");
-                text.textContent = this.formatTroops(count);
-
-                this.armiesLayer.appendChild(rect);
-                this.armiesLayer.appendChild(text);
+                this._drawArmyChip(baseX + offsetX, baseY, clan, count, 0.9);
             });
+
+            // Draw battle indicator + troops in battle
+            if (hasBattle) {
+                const battleY = baseY + (armies.length > 0 ? 10 : 0);
+
+                // Crossed swords icon
+                const icon = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                icon.setAttribute("x", baseX);
+                icon.setAttribute("y", battleY + 2);
+                icon.setAttribute("text-anchor", "middle");
+                icon.setAttribute("font-size", "7");
+                icon.setAttribute("pointer-events", "none");
+                icon.textContent = "⚔";
+                this.armiesLayer.appendChild(icon);
+
+                // Draw each battling clan's chip (dimmed)
+                const uniqueClans = {};
+                battleTroops.forEach(bt => {
+                    uniqueClans[bt.clanId] = (uniqueClans[bt.clanId] || 0) + bt.count;
+                });
+                const battleEntries = Object.entries(uniqueClans);
+
+                battleEntries.forEach(([clanId, count], i) => {
+                    const clan = GameState.getClan(clanId);
+                    if (!clan) return;
+
+                    const offsetX = (i - (battleEntries.length - 1) / 2) * 12;
+                    this._drawArmyChip(baseX + offsetX, battleY + 7, clan, count, 0.5);
+                });
+            }
         });
+    },
+
+    _drawArmyChip(x, y, clan, count, opacity) {
+        const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+        rect.setAttribute("x", x - 6);
+        rect.setAttribute("y", y - 4);
+        rect.setAttribute("width", "12");
+        rect.setAttribute("height", "8");
+        rect.setAttribute("rx", "1.5");
+        rect.setAttribute("fill", clan.color);
+        rect.setAttribute("stroke", "#000");
+        rect.setAttribute("stroke-width", "0.3");
+        rect.setAttribute("opacity", opacity);
+
+        const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        text.setAttribute("x", x);
+        text.setAttribute("y", y + 2);
+        text.setAttribute("text-anchor", "middle");
+        text.setAttribute("font-size", "4.5");
+        text.setAttribute("font-weight", "bold");
+        text.setAttribute("fill", "#fff");
+        text.setAttribute("pointer-events", "none");
+        text.setAttribute("font-family", "sans-serif");
+        text.setAttribute("opacity", opacity);
+        text.textContent = this.formatTroops(count);
+
+        this.armiesLayer.appendChild(rect);
+        this.armiesLayer.appendChild(text);
     },
 
     drawArrows() {

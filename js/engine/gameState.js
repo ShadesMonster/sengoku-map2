@@ -8,6 +8,7 @@ const GameState = {
     orders: [],         // pending movement orders
     battles: [],        // pending battles to resolve
     pendingAttacks: [], // armies waiting for a battle to resolve before attacking
+    casualties: {},     // clanId -> recovering troop count (blocks levy raising)
     alliances: [],      // { clan1, clan2 }
     allianceRequests: [],// { from, to, timestamp }
     history: [],        // event log
@@ -58,6 +59,7 @@ const GameState = {
         this.orders = [];
         this.battles = [];
         this.pendingAttacks = [];
+        this.casualties = {};
         this.alliances = [];
         this.allianceRequests = [];
         this.history = [];
@@ -106,6 +108,7 @@ const GameState = {
             orders: this.orders,
             battles: this.battles,
             pendingAttacks: this.pendingAttacks,
+            casualties: this.casualties,
             alliances: this.alliances,
             allianceRequests: this.allianceRequests,
             history: this.history,

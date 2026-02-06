@@ -221,6 +221,8 @@ const Admin = {
         // Clear resolved battles and pending attacks
         GameState.battles = GameState.battles.filter(b => b.status !== "resolved");
         GameState.pendingAttacks = [];
+        // Recover casualties (troops become available to levy again)
+        ArmySystem.recoverCasualties();
         GameState.addHistory("system", `Week ${GameState.week} begins. Planning Phase.`);
         GameState.save();
         App.updateUI();
