@@ -27,6 +27,9 @@ const GameState = {
         return deadline;
     },
 
+    // State version - increment when province/map data changes to force reset
+    STATE_VERSION: 2,
+
     // Initialize game
     init() {
         // Try to load saved state
@@ -34,8 +37,11 @@ const GameState = {
         if (saved) {
             try {
                 const parsed = JSON.parse(saved);
-                Object.assign(this, parsed);
-                return;
+                if (parsed.stateVersion === this.STATE_VERSION) {
+                    Object.assign(this, parsed);
+                    return;
+                }
+                console.warn("State version mismatch, reinitializing");
             } catch (e) {
                 console.warn("Failed to load saved state, initializing fresh");
             }
@@ -90,6 +96,7 @@ const GameState = {
     // Save to localStorage
     save() {
         const state = {
+            stateVersion: this.STATE_VERSION,
             week: this.week,
             phase: this.phase,
             clans: this.clans,

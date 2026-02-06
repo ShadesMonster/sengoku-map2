@@ -2,9 +2,10 @@
 const MapInteraction = {
     container: null,
     svg: null,
-    viewBox: { x: 0, y: 0, w: 1200, h: 900 },
+    viewBox: { x: 0, y: 0, w: 732, h: 777 },
     isDragging: false,
     dragStart: { x: 0, y: 0 },
+    dragMoved: false,
     selectedProvince: null,
     moveMode: false,
     moveFrom: null,
@@ -23,11 +24,11 @@ const MapInteraction = {
             this.zoom(delta, e.clientX, e.clientY);
         });
 
-        // Pan with mouse drag
+        // Pan with left-click drag
         this.container.addEventListener("mousedown", (e) => {
-            if (e.button === 1 || (e.button === 0 && e.shiftKey)) {
-                // Middle click or shift+left click for pan
+            if (e.button === 0 || e.button === 1) {
                 this.isDragging = true;
+                this.dragMoved = false;
                 this.dragStart = { x: e.clientX, y: e.clientY };
                 this.container.style.cursor = "grabbing";
                 e.preventDefault();
@@ -38,6 +39,9 @@ const MapInteraction = {
             if (!this.isDragging) return;
             const dx = (e.clientX - this.dragStart.x) * (this.viewBox.w / this.container.clientWidth);
             const dy = (e.clientY - this.dragStart.y) * (this.viewBox.h / this.container.clientHeight);
+            if (Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5) {
+                this.dragMoved = true;
+            }
             this.viewBox.x -= dx;
             this.viewBox.y -= dy;
             this.dragStart = { x: e.clientX, y: e.clientY };
@@ -54,15 +58,14 @@ const MapInteraction = {
             this.container.style.cursor = "default";
         });
 
-        // Province click
+        // Province click - use data-province attribute
         this.svg.addEventListener("click", (e) => {
-            if (this.isDragging) return;
+            if (this.dragMoved) return;
             const target = e.target.closest(".province-path");
             if (target) {
-                const provId = target.getAttribute("data-id");
-                this.selectProvince(provId);
+                const provId = target.getAttribute("data-province");
+                if (provId) this.selectProvince(provId);
             } else if (this.moveMode) {
-                // Clicked outside any province while in move mode - cancel
                 this.cancelMoveMode();
             }
         });
@@ -128,7 +131,7 @@ const MapInteraction = {
         const newH = this.viewBox.h * factor;
 
         // Clamp zoom
-        if (newW < 1200 / this.maxZoom || newW > 1200 / this.minZoom) return;
+        if (newW < 732 / this.maxZoom || newW > 732 / this.minZoom) return;
 
         this.viewBox.x = mouseX - (mouseX - this.viewBox.x) * (newW / this.viewBox.w);
         this.viewBox.y = mouseY - (mouseY - this.viewBox.y) * (newH / this.viewBox.h);
@@ -249,8 +252,8 @@ const MapInteraction = {
     centerOn(provinceId) {
         const prov = PROVINCE_MAP[provinceId];
         if (!prov) return;
-        const viewW = 400;
-        const viewH = 300;
+        const viewW = 300;
+        const viewH = 320;
         this.viewBox.x = prov.center.x - viewW / 2;
         this.viewBox.y = prov.center.y - viewH / 2;
         this.viewBox.w = viewW;
