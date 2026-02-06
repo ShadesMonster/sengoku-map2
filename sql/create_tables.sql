@@ -1,37 +1,38 @@
 -- ============================================================
 -- Shogunate Map - Clan Families & Marriages Tables
--- Run this in your phpMyAdmin SQL console
+-- Run this in your phpMyAdmin SQL console (SQL tab)
 -- ============================================================
 
--- Table for clan family members (leaders and children for the marriage/alliance system)
--- Each clan's daimyo can add their family members here.
--- roblox_user_id links to actual Roblox profiles for avatar fetching.
+-- Children of clan leaders (for marriage/alliance system).
+-- Leaders auto-populate from roblox_clans daimyo fields.
+-- clan_id references roblox_clans.clan_id.
+-- roblox_user_id must match a member in roblox_clan_members for that clan.
 CREATE TABLE IF NOT EXISTS roblox_clan_families (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    clan_id INT NOT NULL,                           -- FK to roblox_clans.id
+    clan_id INT NOT NULL,                           -- References roblox_clans.clan_id
     roblox_user_id BIGINT DEFAULT NULL,             -- Roblox user ID (for profile picture)
-    character_name VARCHAR(100) NOT NULL,            -- Character name in the Sengoku setting
+    character_name VARCHAR(100) NOT NULL,            -- RP character name
     role ENUM('leader', 'child') NOT NULL DEFAULT 'child',
     gender ENUM('male', 'female') NOT NULL,
-    title VARCHAR(100) DEFAULT NULL,                -- Optional title (e.g. "Tiger of Kai")
-    display_order INT NOT NULL DEFAULT 0,           -- Sort order within clan family
+    title VARCHAR(100) DEFAULT NULL,
+    display_order INT NOT NULL DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_clan_id (clan_id),
     INDEX idx_roblox_user (roblox_user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- Table for marriages between clan family members (= alliances)
--- A marriage in 'accepted' status means the two clans are allied.
--- Dissolving a marriage breaks the alliance.
+-- Marriages between clan family members (= alliances).
+-- status 'accepted' = active alliance.
+-- status 'dissolved' = broken alliance (kept for history).
 CREATE TABLE IF NOT EXISTS roblox_clan_marriages (
     id INT AUTO_INCREMENT PRIMARY KEY,
     person1_id INT NOT NULL,                        -- FK to roblox_clan_families.id
     person2_id INT NOT NULL,                        -- FK to roblox_clan_families.id
-    clan1_id INT NOT NULL,                          -- Clan of person1 (for quick lookups)
+    clan1_id INT NOT NULL,                          -- Clan of person1
     clan2_id INT NOT NULL,                          -- Clan of person2
     status ENUM('proposed', 'accepted', 'dissolved') NOT NULL DEFAULT 'proposed',
-    proposed_by_clan_id INT NOT NULL,               -- Which clan initiated the proposal
+    proposed_by_clan_id INT NOT NULL,               -- Which clan proposed
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     resolved_at TIMESTAMP NULL DEFAULT NULL,
     FOREIGN KEY (person1_id) REFERENCES roblox_clan_families(id) ON DELETE CASCADE,
