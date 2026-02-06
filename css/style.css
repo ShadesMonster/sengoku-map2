@@ -1,0 +1,347 @@
+/* === SHOGUNATE - Sengoku Strategy Map === */
+/* === Base Reset & Theme === */
+
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;600;700&display=swap');
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+:root {
+    --bg-primary: #1a1a14;
+    --bg-secondary: #252518;
+    --bg-panel: #2a2a1e;
+    --bg-card: #333328;
+    --border: #4a4a38;
+    --border-light: #5a5a48;
+    --text-primary: #e8d5b0;
+    --text-secondary: #b8a880;
+    --text-muted: #8a7d68;
+    --accent-gold: #c8a84e;
+    --accent-red: #cc3333;
+    --accent-green: #40c060;
+    --accent-blue: #4488cc;
+    --planning-color: #4488cc;
+    --battle-color: #cc3333;
+    --shadow: rgba(0, 0, 0, 0.4);
+}
+
+body {
+    font-family: 'Noto Sans JP', sans-serif;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+}
+
+/* === Top Bar === */
+#top-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 48px;
+    padding: 0 16px;
+    background: linear-gradient(180deg, #2a2a1e, #1a1a14);
+    border-bottom: 1px solid var(--border);
+    z-index: 100;
+    position: relative;
+}
+
+#top-bar-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+#game-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--accent-gold);
+    letter-spacing: 2px;
+}
+
+#week-display {
+    font-size: 13px;
+    color: var(--text-secondary);
+    padding: 2px 8px;
+    background: var(--bg-card);
+    border-radius: 4px;
+}
+
+.phase-planning {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 12px;
+    background: var(--planning-color);
+    color: #fff;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.phase-battle {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 12px;
+    background: var(--battle-color);
+    color: #fff;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    animation: pulse 1.5s ease-in-out infinite;
+}
+
+#top-bar-center {
+    display: flex;
+    align-items: center;
+}
+
+#countdown-timer {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+#countdown-label {
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+#countdown-value {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--accent-gold);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 1px;
+}
+
+#top-bar-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+#clan-selector {
+    padding: 4px 8px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 12px;
+}
+
+.top-btn {
+    width: 32px;
+    height: 32px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s;
+}
+
+.top-btn:hover {
+    background: var(--border);
+}
+
+/* === Main Content === */
+#main-content {
+    display: flex;
+    height: calc(100vh - 48px);
+    position: relative;
+}
+
+/* === Map Container === */
+#map-container {
+    flex: 1;
+    overflow: hidden;
+    background: #0d1b2a;
+    cursor: default;
+    position: relative;
+}
+
+#game-map {
+    width: 100%;
+    height: 100%;
+}
+
+/* === Province Styles === */
+.province-path {
+    cursor: pointer;
+    transition: fill-opacity 0.2s, stroke-width 0.2s;
+}
+
+.province-path:hover, .province-path.hovered {
+    fill-opacity: 0.8 !important;
+    stroke: #e8d5b0;
+    stroke-width: 2;
+}
+
+.province-path.highlighted {
+    stroke: var(--accent-gold);
+    stroke-width: 2.5;
+    filter: url(#glow);
+}
+
+.province-path.move-target {
+    stroke: var(--accent-green);
+    stroke-width: 2;
+    stroke-dasharray: 4,2;
+    animation: target-pulse 1s ease-in-out infinite;
+}
+
+@keyframes target-pulse {
+    0%, 100% { stroke-opacity: 0.5; }
+    50% { stroke-opacity: 1; }
+}
+
+/* === Order Arrows === */
+.order-arrow {
+    pointer-events: none;
+}
+
+/* === Notifications === */
+#notifications {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column-reverse;
+    gap: 8px;
+    max-width: 380px;
+}
+
+.notification {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: 0 4px 12px var(--shadow);
+    transform: translateX(120%);
+    transition: transform 0.3s ease;
+    font-size: 13px;
+}
+
+.notification.show {
+    transform: translateX(0);
+}
+
+.notif-success { border-left: 3px solid var(--accent-green); }
+.notif-error { border-left: 3px solid var(--accent-red); }
+.notif-warning { border-left: 3px solid #ff9900; }
+.notif-info { border-left: 3px solid var(--accent-blue); }
+.notif-diplomacy { border-left: 3px solid #aa44cc; }
+.notif-battle { border-left: 3px solid var(--accent-red); }
+
+.notif-icon { font-size: 16px; flex-shrink: 0; }
+.notif-message { flex: 1; }
+.notif-close {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 16px;
+    padding: 0 4px;
+}
+
+/* === Clan Legend === */
+#clan-legend {
+    position: absolute;
+    bottom: 16px;
+    left: 16px;
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 12px;
+    min-width: 180px;
+    z-index: 50;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+#clan-legend h4 {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+}
+
+.legend-entry {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 4px;
+    cursor: pointer;
+    border-radius: 3px;
+    transition: background 0.15s;
+    font-size: 11px;
+}
+
+.legend-entry:hover {
+    background: var(--bg-card);
+}
+
+.legend-entry.selected {
+    background: var(--bg-card);
+    border: 1px solid var(--accent-gold);
+}
+
+.legend-color {
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+    flex-shrink: 0;
+}
+
+.legend-name { flex: 1; }
+
+.legend-stats {
+    color: var(--text-muted);
+    font-size: 10px;
+}
+
+/* === Animations === */
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+}
+
+@keyframes pulse-border {
+    0%, 100% { border-color: var(--border); }
+    50% { border-color: var(--accent-gold); }
+}
+
+.pulse-border {
+    animation: pulse-border 2s ease-in-out infinite;
+}
+
+/* === Scrollbar === */
+::-webkit-scrollbar {
+    width: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--bg-primary);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--border-light);
+}
