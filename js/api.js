@@ -1,7 +1,7 @@
 // API Client - connects frontend to Express backend on PebbleHost
 // Set API_BASE_URL to your server URL to enable database mode.
 // Leave as null to use local-only mode (localStorage + hardcoded families).
-const API_BASE_URL = "http://142.44.234.13:8073/api/sengoku";
+const API_BASE_URL = "https://shogunate-api.duckdns.org/api/sengoku";
 
 const API = {
     enabled: !!API_BASE_URL,
