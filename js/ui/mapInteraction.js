@@ -70,16 +70,16 @@ const MapInteraction = {
             }
         });
 
-        // Province hover - bring to front so border renders above neighbors
+        // Province hover - z-order: hovered (top) > selected (mid) > rest
         this.svg.addEventListener("mouseover", (e) => {
             const target = e.target.closest(".province-path");
             if (target) {
                 const provId = target.getAttribute("data-province");
-                if (provId) MapRenderer.bringToFront(provId);
-                // Keep selected province on top of hovered ones
+                // Bring selected first, then hovered on top of it
                 if (this.selectedProvince && this.selectedProvince !== provId) {
                     MapRenderer.bringToFront(this.selectedProvince);
                 }
+                if (provId) MapRenderer.bringToFront(provId);
                 target.classList.add("hovered");
             }
         });
@@ -88,6 +88,10 @@ const MapInteraction = {
             const target = e.target.closest(".province-path");
             if (target) {
                 target.classList.remove("hovered");
+                // When hover leaves, put selected back on top
+                if (this.selectedProvince) {
+                    MapRenderer.bringToFront(this.selectedProvince);
+                }
             }
         });
 
