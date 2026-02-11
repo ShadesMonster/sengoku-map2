@@ -17,6 +17,8 @@ const App = {
         Dashboard.init();
         HistoryLog.init();
         Admin.init();
+        ArmorSystem.init();
+        ArmorPanel.init();
 
         // Update all UI
         this.updateUI();
