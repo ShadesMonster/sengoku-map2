@@ -70,25 +70,38 @@ const MapInteraction = {
             }
         });
 
-        // Province hover - z-order: hovered (top) > selected (mid) > rest
+        // Province hover - track explicitly to avoid Chrome/Edge sticky hover
+        // (bringToFront reappends DOM elements, which breaks mouseout in some browsers)
+        this._hoveredEl = null;
+
         this.svg.addEventListener("mouseover", (e) => {
             const target = e.target.closest(".province-path");
+            // Clear previous hover if it's a different element
+            if (this._hoveredEl && this._hoveredEl !== target) {
+                this._hoveredEl.classList.remove("hovered");
+            }
             if (target) {
                 const provId = target.getAttribute("data-province");
-                // Bring selected first, then hovered on top of it
                 if (this.selectedProvince && this.selectedProvince !== provId) {
                     MapRenderer.bringToFront(this.selectedProvince);
                 }
                 if (provId) MapRenderer.bringToFront(provId);
                 target.classList.add("hovered");
+                this._hoveredEl = target;
+            } else {
+                this._hoveredEl = null;
             }
         });
 
         this.svg.addEventListener("mouseout", (e) => {
             const target = e.target.closest(".province-path");
-            if (target) {
+            // Only clear if mouse left the SVG entirely (relatedTarget not in SVG)
+            // or moved to a non-province element
+            const related = e.relatedTarget;
+            const relatedProv = related && related.closest ? related.closest(".province-path") : null;
+            if (target && !relatedProv) {
                 target.classList.remove("hovered");
-                // When hover leaves, put selected back on top
+                this._hoveredEl = null;
                 if (this.selectedProvince) {
                     MapRenderer.bringToFront(this.selectedProvince);
                 }
