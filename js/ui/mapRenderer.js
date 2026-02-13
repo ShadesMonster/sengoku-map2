@@ -18,9 +18,10 @@ const MapRenderer = {
 
     // Add data attributes and classes to existing SVG paths
     initProvincePaths() {
+        const svgPt = this.svg.createSVGPoint();
+
         PROVINCES.forEach(prov => {
-            // Sample border points along each SVG path for arrow routing
-            prov._borderPoints = [];
+            const paths = [];
             prov.pathIds.forEach(pid => {
                 const path = this.svg.getElementById(pid);
                 if (!path) return;
@@ -29,42 +30,46 @@ const MapRenderer = {
                 path.removeAttribute("style");
                 path.setAttribute("stroke", "#555544");
                 path.setAttribute("stroke-width", "0.8");
-                const len = path.getTotalLength();
-                const step = 3; // sample every ~3 SVG units
-                const samples = Math.max(20, Math.round(len / step));
-                for (let i = 0; i < samples; i++) {
-                    const pt = path.getPointAtLength((i / samples) * len);
-                    prov._borderPoints.push({ x: pt.x, y: pt.y });
-                }
+                paths.push(path);
             });
-        });
-    },
 
-    // Find the closest point on province border to a target point
-    _closestBorderPoint(prov, target) {
-        let best = prov.center;
-        let bestDist = Infinity;
-        for (const pt of prov._borderPoints) {
-            const dx = pt.x - target.x;
-            const dy = pt.y - target.y;
-            const d = dx * dx + dy * dy;
-            if (d < bestDist) {
-                bestDist = d;
-                best = pt;
+            // Compute true area centroid by grid-sampling inside the filled paths
+            if (paths.length > 0) {
+                let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+                paths.forEach(p => {
+                    const bb = p.getBBox();
+                    minX = Math.min(minX, bb.x);
+                    minY = Math.min(minY, bb.y);
+                    maxX = Math.max(maxX, bb.x + bb.width);
+                    maxY = Math.max(maxY, bb.y + bb.height);
+                });
+
+                let sumX = 0, sumY = 0, count = 0;
+                const step = 4; // sample every 4 SVG units
+                for (let x = minX; x <= maxX; x += step) {
+                    for (let y = minY; y <= maxY; y += step) {
+                        svgPt.x = x;
+                        svgPt.y = y;
+                        for (const p of paths) {
+                            if (p.isPointInFill(svgPt)) {
+                                sumX += x;
+                                sumY += y;
+                                count++;
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                if (count > 0) {
+                    prov.centroid = { x: sumX / count, y: sumY / count };
+                } else {
+                    prov.centroid = prov.center;
+                }
+            } else {
+                prov.centroid = prov.center;
             }
-        }
-        return best;
-    },
-
-    // Get arrow endpoints: closest border points between two provinces
-    _getArrowEndpoints(fromProv, toProv) {
-        // Step 1: rough target = closest point on B's border to A's label center
-        const roughTo = this._closestBorderPoint(toProv, fromProv.center);
-        // Step 2: from point = closest point on A's border toward that rough target
-        const fromPt = this._closestBorderPoint(fromProv, roughTo);
-        // Step 3: refine to point = closest point on B's border to the from point
-        const toPt = this._closestBorderPoint(toProv, fromPt);
-        return { from: fromPt, to: toPt };
+        });
     },
 
     // Style Yezo/Hokkaido as non-interactive decoration
@@ -85,9 +90,10 @@ const MapRenderer = {
         this.labelsLayer.innerHTML = "";
 
         PROVINCES.forEach(prov => {
+            const pos = prov.centroid || prov.center;
             const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
-            text.setAttribute("x", prov.center.x);
-            text.setAttribute("y", prov.center.y - 2);
+            text.setAttribute("x", pos.x);
+            text.setAttribute("y", pos.y - 2);
             text.setAttribute("text-anchor", "middle");
             text.setAttribute("font-size", "5");
             text.setAttribute("fill", "#e8d5b0");
@@ -96,8 +102,8 @@ const MapRenderer = {
             text.textContent = prov.japaneseName;
 
             const text2 = document.createElementNS("http://www.w3.org/2000/svg", "text");
-            text2.setAttribute("x", prov.center.x);
-            text2.setAttribute("y", prov.center.y + 4);
+            text2.setAttribute("x", pos.x);
+            text2.setAttribute("y", pos.y + 4);
             text2.setAttribute("text-anchor", "middle");
             text2.setAttribute("font-size", "3.5");
             text2.setAttribute("fill", "#b8a880");
@@ -123,8 +129,9 @@ const MapRenderer = {
 
             if (armies.length === 0 && !hasBattle) return;
 
-            const baseX = prov.center.x;
-            const baseY = prov.center.y + 8;
+            const pos = prov.centroid || prov.center;
+            const baseX = pos.x;
+            const baseY = pos.y + 8;
 
             // Draw normal (on-ground) armies
             armies.forEach(([clanId, count], i) => {
@@ -214,7 +221,8 @@ const MapRenderer = {
             const markerEnd = isPending ? "url(#arrow-pending)" : "url(#arrow-committed)";
             const dashArray = isPending ? "3,2" : "none";
 
-            const { from: fromPt, to: toPt } = this._getArrowEndpoints(from, to);
+            const fromPt = from.centroid || from.center;
+            const toPt = to.centroid || to.center;
 
             const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
             line.setAttribute("x1", fromPt.x);
