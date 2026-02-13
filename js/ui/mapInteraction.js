@@ -70,22 +70,16 @@ const MapInteraction = {
             }
         });
 
-        // Province hover - track explicitly to avoid Chrome/Edge sticky hover
-        // (bringToFront reappends DOM elements, which breaks mouseout in some browsers)
+        // Province hover - don't use bringToFront here, it reappends DOM elements
+        // which breaks click detection in Chrome/Edge
         this._hoveredEl = null;
 
         this.svg.addEventListener("mouseover", (e) => {
             const target = e.target.closest(".province-path");
-            // Clear previous hover if it's a different element
             if (this._hoveredEl && this._hoveredEl !== target) {
                 this._hoveredEl.classList.remove("hovered");
             }
             if (target) {
-                const provId = target.getAttribute("data-province");
-                if (this.selectedProvince && this.selectedProvince !== provId) {
-                    MapRenderer.bringToFront(this.selectedProvince);
-                }
-                if (provId) MapRenderer.bringToFront(provId);
                 target.classList.add("hovered");
                 this._hoveredEl = target;
             } else {
@@ -95,16 +89,11 @@ const MapInteraction = {
 
         this.svg.addEventListener("mouseout", (e) => {
             const target = e.target.closest(".province-path");
-            // Only clear if mouse left the SVG entirely (relatedTarget not in SVG)
-            // or moved to a non-province element
             const related = e.relatedTarget;
             const relatedProv = related && related.closest ? related.closest(".province-path") : null;
             if (target && !relatedProv) {
                 target.classList.remove("hovered");
                 this._hoveredEl = null;
-                if (this.selectedProvince) {
-                    MapRenderer.bringToFront(this.selectedProvince);
-                }
             }
         });
 
