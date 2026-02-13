@@ -19,8 +19,8 @@ const MapRenderer = {
     // Add data attributes and classes to existing SVG paths
     initProvincePaths() {
         PROVINCES.forEach(prov => {
-            // Sample points along each SVG path to compute true visual centroid
-            let sumX = 0, sumY = 0, totalSamples = 0;
+            // Sample border points along each SVG path for arrow routing
+            prov._borderPoints = [];
             prov.pathIds.forEach(pid => {
                 const path = this.svg.getElementById(pid);
                 if (!path) return;
@@ -29,22 +29,42 @@ const MapRenderer = {
                 path.removeAttribute("style");
                 path.setAttribute("stroke", "#555544");
                 path.setAttribute("stroke-width", "0.8");
-                // Sample ~100 points along the path outline
                 const len = path.getTotalLength();
-                const samples = Math.max(50, Math.round(len / 2));
+                const step = 3; // sample every ~3 SVG units
+                const samples = Math.max(20, Math.round(len / step));
                 for (let i = 0; i < samples; i++) {
                     const pt = path.getPointAtLength((i / samples) * len);
-                    sumX += pt.x;
-                    sumY += pt.y;
+                    prov._borderPoints.push({ x: pt.x, y: pt.y });
                 }
-                totalSamples += samples;
             });
-            if (totalSamples > 0) {
-                prov.centroid = { x: sumX / totalSamples, y: sumY / totalSamples };
-            } else {
-                prov.centroid = prov.center;
-            }
         });
+    },
+
+    // Find the closest point on province border to a target point
+    _closestBorderPoint(prov, target) {
+        let best = prov.center;
+        let bestDist = Infinity;
+        for (const pt of prov._borderPoints) {
+            const dx = pt.x - target.x;
+            const dy = pt.y - target.y;
+            const d = dx * dx + dy * dy;
+            if (d < bestDist) {
+                bestDist = d;
+                best = pt;
+            }
+        }
+        return best;
+    },
+
+    // Get arrow endpoints: closest border points between two provinces
+    _getArrowEndpoints(fromProv, toProv) {
+        // Step 1: rough target = closest point on B's border to A's label center
+        const roughTo = this._closestBorderPoint(toProv, fromProv.center);
+        // Step 2: from point = closest point on A's border toward that rough target
+        const fromPt = this._closestBorderPoint(fromProv, roughTo);
+        // Step 3: refine to point = closest point on B's border to the from point
+        const toPt = this._closestBorderPoint(toProv, fromPt);
+        return { from: fromPt, to: toPt };
     },
 
     // Style Yezo/Hokkaido as non-interactive decoration
@@ -194,8 +214,7 @@ const MapRenderer = {
             const markerEnd = isPending ? "url(#arrow-pending)" : "url(#arrow-committed)";
             const dashArray = isPending ? "3,2" : "none";
 
-            const fromPt = from.centroid || from.center;
-            const toPt = to.centroid || to.center;
+            const { from: fromPt, to: toPt } = this._getArrowEndpoints(from, to);
 
             const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
             line.setAttribute("x1", fromPt.x);
