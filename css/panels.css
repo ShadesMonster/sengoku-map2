@@ -118,6 +118,16 @@
     color: #3498db;
 }
 
+.army-entry.retreating {
+    opacity: 0.6;
+    border-style: dashed !important;
+}
+
+.battle-side-tag.retreating {
+    background: rgba(240, 160, 40, 0.2);
+    color: #f0a028;
+}
+
 /* Neighbor entries */
 .neighbor-entry {
     display: flex;

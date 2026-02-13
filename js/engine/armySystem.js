@@ -131,6 +131,8 @@ const ArmySystem = {
         (GameState.pendingAttacks || []).forEach(p => {
             if (p.armyBreakdown[clanId]) total += p.armyBreakdown[clanId];
         });
+        // And retreating armies
+        total += BattleSystem.getRetreatingTroops(clanId);
         return total;
     },
 

@@ -9,6 +9,7 @@ const GameState = {
     battles: [],        // pending battles to resolve
     pendingAttacks: [], // armies waiting for a battle to resolve before attacking
     casualties: {},     // clanId -> recovering troop count (blocks levy raising)
+    retreatingArmies: [], // armies retreating from lost battles
     alliances: [],      // { clan1, clan2 }
     allianceRequests: [],// { from, to, timestamp }
     history: [],        // event log
@@ -30,7 +31,7 @@ const GameState = {
     },
 
     // State version - increment when province/map data changes to force reset
-    STATE_VERSION: 6,
+    STATE_VERSION: 7,
 
     // Initialize game
     init() {
@@ -60,6 +61,7 @@ const GameState = {
         this.battles = [];
         this.pendingAttacks = [];
         this.casualties = {};
+        this.retreatingArmies = [];
         this.alliances = [];
         this.allianceRequests = [];
         this.history = [];
@@ -109,6 +111,7 @@ const GameState = {
             battles: this.battles,
             pendingAttacks: this.pendingAttacks,
             casualties: this.casualties,
+            retreatingArmies: this.retreatingArmies,
             alliances: this.alliances,
             allianceRequests: this.allianceRequests,
             history: this.history,

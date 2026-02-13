@@ -135,7 +135,9 @@ const MapRenderer = {
             const battleTroops = ArmySystem.getBattleTroopsAtProvince(prov.id);
             const hasBattle = battleTroops.length > 0;
 
-            if (armies.length === 0 && !hasBattle) return;
+            const retreating = BattleSystem.getRetreatingArmiesAtProvince(prov.id);
+
+            if (armies.length === 0 && !hasBattle && retreating.length === 0) return;
 
             const pos = prov.centroid || prov.center;
             const baseX = pos.x;
@@ -178,6 +180,29 @@ const MapRenderer = {
                 defenders.forEach((bt, i) => {
                     const offsetX = 8 + i * 12;
                     this._drawArmyChip(baseX + offsetX, battleY + 2, bt.clan, bt.count, 0.75);
+                });
+            }
+
+            // Draw retreating armies with a retreat icon
+            if (retreating.length > 0) {
+                const retY = baseY + (armies.length > 0 ? 10 : 0) + (hasBattle ? 12 : 0);
+
+                retreating.forEach((r, i) => {
+                    const clan = GameState.getClan(r.clanId);
+                    if (!clan) return;
+                    const offsetX = (i - (retreating.length - 1) / 2) * 14;
+                    this._drawArmyChip(baseX + offsetX, retY, clan, r.troops, 0.5);
+
+                    // Retreat arrow icon
+                    const icon = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                    icon.setAttribute("x", baseX + offsetX);
+                    icon.setAttribute("y", retY - 5);
+                    icon.setAttribute("text-anchor", "middle");
+                    icon.setAttribute("font-size", "5");
+                    icon.setAttribute("pointer-events", "none");
+                    icon.setAttribute("opacity", "0.7");
+                    icon.textContent = "\u{1F6A9}"; // flag = retreating
+                    this.armiesLayer.appendChild(icon);
                 });
             }
         });

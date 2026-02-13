@@ -83,6 +83,24 @@ const Panels = {
             }).join("");
         }
 
+        // Retreating armies
+        const retreating = BattleSystem.getRetreatingArmiesAtProvince(provinceId);
+        if (retreating.length > 0) {
+            html += '<div class="battle-troops-header">\u{1F6A9} Retreating</div>';
+            html += retreating.map(r => {
+                const clan = GameState.getClan(r.clanId);
+                if (!clan) return '';
+                const players = r.troops / TROOP_RATIO;
+                const destName = PROVINCE_MAP[r.destination] ? PROVINCE_MAP[r.destination].name : "unknown";
+                return `
+                    <div class="army-entry retreating" style="border-left: 3px solid ${clan.color}">
+                        <span class="army-clan">${clan.japaneseName} ${clan.name} <span class="battle-side-tag retreating">RET</span></span>
+                        <span class="army-count">${r.troops.toLocaleString()} ashigaru <span class="player-equiv">(${players} men)</span> → ${destName} (${r.weeksLeft}w)</span>
+                    </div>
+                `;
+            }).join("");
+        }
+
         if (!html) {
             html = '<div class="empty-state">No armies present</div>';
         }

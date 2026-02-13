@@ -197,24 +197,48 @@ const BattleSystem = {
         const province = GameState.provinces[battle.province];
         const provData = PROVINCE_MAP[battle.province];
 
-        // Losers lose ALL troops (routed) - add to casualty recovery
-        const loserNames = losers.clans.map(c => GameState.getClan(c).name);
-        for (const [clanId, troops] of Object.entries(losers.armyBreakdown)) {
-            ArmySystem.addCasualties(clanId, troops);
-        }
+        // === Proportional casualties based on force ratio ===
+        const winnerTotal = winners.totalTroops;
+        const loserTotal = losers.totalTroops;
+        const ratio = winnerTotal / Math.max(loserTotal, 1);
 
-        // Winner takes 30% casualties - add to casualty recovery
-        const casualtyRate = 0.3;
+        // Winner casualties: lower when outnumbering. Base 10%, scales with inverse ratio, cap 30%
+        const winnerCasualtyRate = Math.min(0.30, 0.10 * (1 / Math.max(ratio, 0.1)));
+        // Loser casualties: higher when outnumbered. Base 40%, scales with ratio, cap 80%
+        const loserCasualtyRate = Math.min(0.80, 0.40 * Math.max(ratio, 1));
+
+        // Apply winner casualties
         const winnerSurviving = {};
-        let totalCasualties = 0;
+        let totalWinnerCasualties = 0;
         for (const [clanId, troops] of Object.entries(winners.armyBreakdown)) {
-            const casualties = Math.floor(troops * casualtyRate);
-            totalCasualties += casualties;
+            const casualties = Math.floor(troops * winnerCasualtyRate);
+            totalWinnerCasualties += casualties;
             winnerSurviving[clanId] = troops - casualties;
             ArmySystem.addCasualties(clanId, casualties);
         }
 
+        // Apply loser casualties — survivors retreat
+        const loserSurviving = {};
+        let totalLoserCasualties = 0;
+        let totalLoserSurvivors = 0;
+        for (const [clanId, troops] of Object.entries(losers.armyBreakdown)) {
+            const casualties = Math.floor(troops * loserCasualtyRate);
+            totalLoserCasualties += casualties;
+            const surviving = troops - casualties;
+            ArmySystem.addCasualties(clanId, casualties);
+            if (surviving > 0) {
+                loserSurviving[clanId] = surviving;
+                totalLoserSurvivors += surviving;
+            }
+        }
+
         const winnerNames = winners.clans.map(c => GameState.getClan(c).name);
+        const loserNames = losers.clans.map(c => GameState.getClan(c).name);
+
+        // === Start retreat for surviving losers ===
+        if (totalLoserSurvivors > 0) {
+            this._startRetreat(battle.province, losers.clans, loserSurviving);
+        }
 
         // Check what happens next
         const waiting = battle.waitingAttackers;
@@ -225,7 +249,6 @@ const BattleSystem = {
             const next = waiting.shift();
             const remainingWaiting = [...waiting];
 
-            // Create chain battle
             const winnerSide = {
                 clans: winners.clans,
                 armyBreakdown: { ...winnerSurviving }
@@ -239,21 +262,17 @@ const BattleSystem = {
                 provinceOwnerTroops: hasOwner
             });
 
-            // Don't add winner troops to province yet - they go straight to next battle
-
             GameState.addHistory("battle",
                 `${winnerNames.join(" + ")} wins! Next: bracket round ${newBattle.bracketRound}`);
 
         } else if (hasOwner) {
-            // Bracket winner must now fight the province defender
             const winnerSide = {
                 clans: winners.clans,
                 armyBreakdown: { ...winnerSurviving }
             };
 
-            // Now remove the owner's troops from province for the final fight
             this.createBattle(battle.province, winnerSide, hasOwner, {
-                isSanryo: false, // final fight uses province terrain
+                isSanryo: false,
                 bracketRound: null,
                 bracketId: battle.bracketId
             });
@@ -266,16 +285,18 @@ const BattleSystem = {
             for (const [clanId, troops] of Object.entries(winnerSurviving)) {
                 province.armies[clanId] = (province.armies[clanId] || 0) + troops;
             }
-            province.owner = winners.clans[0]; // primary clan of alliance takes ownership
+            province.owner = winners.clans[0];
 
-            // Check for pending attacks that were waiting on this battle
             this._processPendingAttacks(battle.province);
 
             const totalSurviving = Object.values(winnerSurviving).reduce((s, v) => s + v, 0);
+            const retreatMsg = totalLoserSurvivors > 0
+                ? ` ${loserNames.join(", ")} retreating with ${totalLoserSurvivors} survivors.`
+                : ` ${loserNames.join(", ")} routed.`;
             GameState.addHistory("battle",
                 `${this.getBattleIcon(battle.terrain)} ${battle.battleType} at ${provData.name}: ` +
-                `${winnerNames.join(" + ")} victorious! Defeated: ${loserNames.join(", ")}. ` +
-                `Survivors: ${totalSurviving}, Casualties: ${totalCasualties}`);
+                `${winnerNames.join(" + ")} victorious!${retreatMsg} ` +
+                `Winner casualties: ${totalWinnerCasualties}, Loser casualties: ${totalLoserCasualties}`);
         }
 
         GameState.save();
@@ -284,7 +305,9 @@ const BattleSystem = {
             success: true,
             winner: winnerNames.join(" + "),
             losers: loserNames,
-            totalCasualties,
+            totalWinnerCasualties,
+            totalLoserCasualties,
+            retreating: totalLoserSurvivors,
             hasChainBattle: waiting.length > 0 || !!hasOwner
         };
     },
@@ -364,6 +387,152 @@ const BattleSystem = {
                 this.createBattle(provinceId, attacker, defender);
             }
         });
+    },
+
+    // ============================================================
+    // Retreat System
+    // ============================================================
+
+    // Start a retreat: find path to allied territory, create retreat entry
+    _startRetreat(fromProvinceId, clanIds, survivingBreakdown) {
+        if (!GameState.retreatingArmies) GameState.retreatingArmies = [];
+
+        // For each clan, find their own retreat path
+        for (const clanId of clanIds) {
+            const troops = survivingBreakdown[clanId];
+            if (!troops || troops <= 0) continue;
+
+            const path = this._findRetreatPath(fromProvinceId, clanId);
+            const clan = GameState.getClan(clanId);
+
+            GameState.retreatingArmies.push({
+                id: Date.now() + Math.random(),
+                clanId,
+                troops,
+                path,             // array of province IDs to traverse
+                currentStep: 0,   // index into path (0 = first step, at battle province still)
+                weeksLeft: 2,     // 2 weeks of movement
+                startWeek: GameState.week,
+                fromProvince: fromProvinceId,
+                destination: path.length > 0 ? path[path.length - 1] : fromProvinceId,
+            });
+
+            const destName = path.length > 0 ? PROVINCE_MAP[path[path.length - 1]].name : "unknown";
+            GameState.addHistory("move",
+                `${clan.name} retreating from ${PROVINCE_MAP[fromProvinceId].name} toward ${destName} (${troops} survivors)`);
+        }
+    },
+
+    // BFS to find nearest allied/owned province from battle site
+    _findRetreatPath(fromProvinceId, clanId) {
+        const allies = GameState.getAllies(clanId);
+        const friendlySet = new Set([clanId, ...allies]);
+
+        const visited = new Set([fromProvinceId]);
+        // BFS queue: each entry is [provinceId, path-so-far]
+        const queue = [[fromProvinceId, []]];
+
+        while (queue.length > 0) {
+            const [current, path] = queue.shift();
+
+            const provData = PROVINCE_MAP[current];
+            if (!provData) continue;
+
+            for (const neighborId of provData.neighbors) {
+                if (visited.has(neighborId)) continue;
+                visited.add(neighborId);
+
+                const newPath = [...path, neighborId];
+                const neighborState = GameState.provinces[neighborId];
+
+                // Check if this is friendly territory
+                if (neighborState && neighborState.owner && friendlySet.has(neighborState.owner)) {
+                    // If within 2 steps, try to go deeper (1 more step into safe territory)
+                    if (newPath.length <= 2) {
+                        const deeperProv = PROVINCE_MAP[neighborId];
+                        if (deeperProv) {
+                            for (const deepId of deeperProv.neighbors) {
+                                const deepState = GameState.provinces[deepId];
+                                if (deepState && deepState.owner && friendlySet.has(deepState.owner) && deepId !== fromProvinceId) {
+                                    return [...newPath, deepId]; // go one deeper
+                                }
+                            }
+                        }
+                    }
+                    return newPath; // return path to first friendly province
+                }
+
+                // Only keep searching within 4 hops (2 weeks = 2 moves, but allow some search depth)
+                if (newPath.length < 6) {
+                    queue.push([neighborId, newPath]);
+                }
+            }
+        }
+
+        // No friendly territory found — retreat to a random adjacent neutral province
+        const provData = PROVINCE_MAP[fromProvinceId];
+        if (provData && provData.neighbors.length > 0) {
+            const neutral = provData.neighbors.find(n => {
+                const s = GameState.provinces[n];
+                return !s || !s.owner;
+            });
+            return neutral ? [neutral] : [provData.neighbors[0]];
+        }
+        return [];
+    },
+
+    // Called each week advance — move retreating armies along their path
+    advanceRetreats() {
+        if (!GameState.retreatingArmies) return;
+
+        const completed = [];
+        const ongoing = [];
+
+        for (const retreat of GameState.retreatingArmies) {
+            retreat.weeksLeft--;
+            retreat.currentStep++;
+
+            if (retreat.weeksLeft <= 0 || retreat.currentStep >= retreat.path.length) {
+                // Retreat complete — place troops at destination
+                const destId = retreat.currentStep < retreat.path.length
+                    ? retreat.path[retreat.currentStep]
+                    : retreat.path[retreat.path.length - 1] || retreat.fromProvince;
+
+                const dest = GameState.provinces[destId];
+                if (dest) {
+                    dest.armies[retreat.clanId] = (dest.armies[retreat.clanId] || 0) + retreat.troops;
+                }
+
+                const clan = GameState.getClan(retreat.clanId);
+                const destName = PROVINCE_MAP[destId] ? PROVINCE_MAP[destId].name : "unknown";
+                GameState.addHistory("move",
+                    `${clan.name} retreat complete — ${retreat.troops} troops arrived at ${destName}`);
+                completed.push(retreat);
+            } else {
+                ongoing.push(retreat);
+            }
+        }
+
+        GameState.retreatingArmies = ongoing;
+    },
+
+    // Get retreating armies at/through a province (for map display)
+    getRetreatingArmiesAtProvince(provinceId) {
+        if (!GameState.retreatingArmies) return [];
+        return GameState.retreatingArmies.filter(r => {
+            // Show at current position along the path
+            if (r.currentStep === 0) return r.fromProvince === provinceId;
+            const idx = Math.min(r.currentStep, r.path.length - 1);
+            return r.path[idx] === provinceId;
+        });
+    },
+
+    // Get all retreating armies for a clan (for troop counting)
+    getRetreatingTroops(clanId) {
+        if (!GameState.retreatingArmies) return 0;
+        return GameState.retreatingArmies
+            .filter(r => r.clanId === clanId)
+            .reduce((sum, r) => sum + r.troops, 0);
     },
 
     // Get active (pending) battle at a province

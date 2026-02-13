@@ -231,6 +231,8 @@ const Admin = {
         // Clear resolved battles and pending attacks
         GameState.battles = GameState.battles.filter(b => b.status !== "resolved");
         GameState.pendingAttacks = [];
+        // Advance retreating armies (move along path, place at destination)
+        BattleSystem.advanceRetreats();
         // Recover casualties (troops become available to levy again)
         ArmySystem.recoverCasualties();
         GameState.addHistory("system", `Week ${GameState.week} begins. Planning Phase.`);
