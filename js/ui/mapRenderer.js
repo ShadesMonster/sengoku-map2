@@ -72,7 +72,7 @@ const MapRenderer = {
 
             // Manual overrides for provinces where auto-centroid sits poorly
             const overrides = {
-                mutsu: { x: 480, y: 300 },
+                mutsu: { x: 540, y: 300 },
             };
             if (overrides[prov.id]) {
                 prov.centroid = overrides[prov.id];
