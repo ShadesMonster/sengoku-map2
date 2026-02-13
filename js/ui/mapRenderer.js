@@ -19,6 +19,8 @@ const MapRenderer = {
     // Add data attributes and classes to existing SVG paths
     initProvincePaths() {
         PROVINCES.forEach(prov => {
+            // Compute true geometric center from SVG path bounding boxes
+            let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
             prov.pathIds.forEach(pid => {
                 const path = this.svg.getElementById(pid);
                 if (!path) return;
@@ -27,7 +29,18 @@ const MapRenderer = {
                 path.removeAttribute("style");
                 path.setAttribute("stroke", "#555544");
                 path.setAttribute("stroke-width", "0.8");
+                const bbox = path.getBBox();
+                minX = Math.min(minX, bbox.x);
+                minY = Math.min(minY, bbox.y);
+                maxX = Math.max(maxX, bbox.x + bbox.width);
+                maxY = Math.max(maxY, bbox.y + bbox.height);
             });
+            // Store true centroid for arrows (keep .center for labels)
+            if (minX !== Infinity) {
+                prov.centroid = { x: (minX + maxX) / 2, y: (minY + maxY) / 2 };
+            } else {
+                prov.centroid = prov.center;
+            }
         });
     },
 
@@ -178,11 +191,14 @@ const MapRenderer = {
             const markerEnd = isPending ? "url(#arrow-pending)" : "url(#arrow-committed)";
             const dashArray = isPending ? "3,2" : "none";
 
+            const fromPt = from.centroid || from.center;
+            const toPt = to.centroid || to.center;
+
             const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
-            line.setAttribute("x1", from.center.x);
-            line.setAttribute("y1", from.center.y);
-            line.setAttribute("x2", to.center.x);
-            line.setAttribute("y2", to.center.y);
+            line.setAttribute("x1", fromPt.x);
+            line.setAttribute("y1", fromPt.y);
+            line.setAttribute("x2", toPt.x);
+            line.setAttribute("y2", toPt.y);
             line.setAttribute("stroke", color);
             line.setAttribute("stroke-width", "1.5");
             line.setAttribute("stroke-dasharray", dashArray);
@@ -190,8 +206,8 @@ const MapRenderer = {
             line.setAttribute("opacity", "0.8");
             line.setAttribute("class", "order-arrow");
 
-            const midX = (from.center.x + to.center.x) / 2;
-            const midY = (from.center.y + to.center.y) / 2;
+            const midX = (fromPt.x + toPt.x) / 2;
+            const midY = (fromPt.y + toPt.y) / 2;
 
             const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
             label.setAttribute("x", midX);
