@@ -7,7 +7,6 @@
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="css/panels.css">
     <link rel="stylesheet" href="css/admin.css">
-    <link rel="stylesheet" href="css/armor.css">
 </head>
 <body>
     <!-- Top Bar -->
@@ -27,7 +26,6 @@
             <select id="clan-selector">
                 <option value="">Select Clan...</option>
             </select>
-            <button id="btn-armor" class="top-btn" title="Armor">🛡️</button>
             <button id="btn-dashboard" class="top-btn" title="Clan Dashboard">📊</button>
             <button id="btn-history" class="top-btn" title="History Log">📜</button>
             <button id="btn-admin" class="top-btn" title="Admin Panel">⚙️</button>
@@ -439,21 +437,6 @@
             </div>
         </div>
 
-        <!-- Armor Panel -->
-        <div id="armor-panel" class="overlay-panel hidden">
-            <div class="overlay-header">
-                <h2>Armor &amp; Equipment</h2>
-                <button class="overlay-close">&times;</button>
-            </div>
-            <div class="overlay-content">
-                <div id="armor-rank-info"></div>
-                <div id="armor-preset-bar"></div>
-                <div id="armor-tabs"></div>
-                <div id="armor-slot-content"></div>
-                <div id="armor-summary"></div>
-            </div>
-        </div>
-
         <!-- Clan Dashboard -->
         <div id="dashboard-panel" class="overlay-panel hidden">
             <div class="overlay-header">
@@ -583,15 +566,12 @@
     <script src="js/engine/moveSystem.js"></script>
     <script src="js/engine/battleSystem.js"></script>
     <script src="js/engine/diplomacy.js"></script>
-    <script src="js/data/armor.js"></script>
-    <script src="js/engine/armorSystem.js"></script>
     <script src="js/ui/robloxAvatar.js"></script>
     <script src="js/ui/mapRenderer.js"></script>
     <script src="js/ui/mapInteraction.js"></script>
     <script src="js/ui/panels.js"></script>
     <script src="js/ui/dashboard.js"></script>
     <script src="js/ui/admin.js"></script>
-    <script src="js/ui/armorPanel.js"></script>
     <script src="js/ui/notifications.js"></script>
     <script src="js/app.js"></script>
 </body>

@@ -177,12 +177,15 @@ body {
 .province-path {
     cursor: pointer;
     transition: fill-opacity 0.2s, stroke-width 0.2s;
+    paint-order: stroke fill;
+    stroke-linejoin: round;
+    stroke-linecap: round;
 }
 
 .province-path:hover, .province-path.hovered {
     fill-opacity: 0.8 !important;
     stroke: #e8d5b0;
-    stroke-width: 2;
+    stroke-width: 2.5;
 }
 
 .province-path.highlighted {
