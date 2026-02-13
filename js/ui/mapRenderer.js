@@ -19,8 +19,8 @@ const MapRenderer = {
     // Add data attributes and classes to existing SVG paths
     initProvincePaths() {
         PROVINCES.forEach(prov => {
-            // Compute true geometric center from SVG path bounding boxes
-            let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+            // Sample points along each SVG path to compute true visual centroid
+            let sumX = 0, sumY = 0, totalSamples = 0;
             prov.pathIds.forEach(pid => {
                 const path = this.svg.getElementById(pid);
                 if (!path) return;
@@ -29,15 +29,18 @@ const MapRenderer = {
                 path.removeAttribute("style");
                 path.setAttribute("stroke", "#555544");
                 path.setAttribute("stroke-width", "0.8");
-                const bbox = path.getBBox();
-                minX = Math.min(minX, bbox.x);
-                minY = Math.min(minY, bbox.y);
-                maxX = Math.max(maxX, bbox.x + bbox.width);
-                maxY = Math.max(maxY, bbox.y + bbox.height);
+                // Sample ~100 points along the path outline
+                const len = path.getTotalLength();
+                const samples = Math.max(50, Math.round(len / 2));
+                for (let i = 0; i < samples; i++) {
+                    const pt = path.getPointAtLength((i / samples) * len);
+                    sumX += pt.x;
+                    sumY += pt.y;
+                }
+                totalSamples += samples;
             });
-            // Store true centroid for arrows (keep .center for labels)
-            if (minX !== Infinity) {
-                prov.centroid = { x: (minX + maxX) / 2, y: (minY + maxY) / 2 };
+            if (totalSamples > 0) {
+                prov.centroid = { x: sumX / totalSamples, y: sumY / totalSamples };
             } else {
                 prov.centroid = prov.center;
             }
