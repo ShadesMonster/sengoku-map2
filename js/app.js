@@ -17,6 +17,7 @@ const App = {
         Dashboard.init();
         HistoryLog.init();
         Admin.init();
+        FAQ.init();
 
         // Update all UI
         this.updateUI();

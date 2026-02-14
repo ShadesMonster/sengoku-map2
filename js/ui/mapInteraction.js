@@ -70,30 +70,26 @@ const MapInteraction = {
             }
         });
 
-        // Province hover - don't use bringToFront here, it reappends DOM elements
-        // which breaks click detection in Chrome/Edge
-        this._hoveredEl = null;
+        // Province hover - uses overlay layer so original paths stay in place for click detection
+        this._hoveredProvince = null;
 
         this.svg.addEventListener("mouseover", (e) => {
             const target = e.target.closest(".province-path");
-            if (this._hoveredEl && this._hoveredEl !== target) {
-                this._hoveredEl.classList.remove("hovered");
-            }
             if (target) {
-                target.classList.add("hovered");
-                this._hoveredEl = target;
-            } else {
-                this._hoveredEl = null;
+                const provId = target.getAttribute("data-province");
+                if (provId !== this._hoveredProvince) {
+                    this._hoveredProvince = provId;
+                    MapRenderer.showHoverOverlay(provId);
+                }
             }
         });
 
         this.svg.addEventListener("mouseout", (e) => {
-            const target = e.target.closest(".province-path");
             const related = e.relatedTarget;
             const relatedProv = related && related.closest ? related.closest(".province-path") : null;
-            if (target && !relatedProv) {
-                target.classList.remove("hovered");
-                this._hoveredEl = null;
+            if (!relatedProv) {
+                this._hoveredProvince = null;
+                MapRenderer.clearHoverOverlay();
             }
         });
 

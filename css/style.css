@@ -182,10 +182,8 @@ body {
     stroke-linecap: round;
 }
 
-.province-path:hover, .province-path.hovered {
+.province-path:hover {
     fill-opacity: 0.8 !important;
-    stroke: #e8d5b0;
-    stroke-width: 3;
 }
 
 .province-path.highlighted {

@@ -204,8 +204,8 @@ const BattleSystem = {
 
         // Winner casualties: lower when outnumbering. Base 10%, scales with inverse ratio, cap 30%
         const winnerCasualtyRate = Math.min(0.30, 0.10 * (1 / Math.max(ratio, 0.1)));
-        // Loser casualties: higher when outnumbered. Base 40%, scales with ratio, cap 80%
-        const loserCasualtyRate = Math.min(0.80, 0.40 * Math.max(ratio, 1));
+        // Loser casualties: higher when outnumbered. Base 40%, scales with ratio, no cap (can lose everything)
+        const loserCasualtyRate = Math.min(1.0, 0.40 * Math.max(ratio, 1));
 
         // Apply winner casualties
         const winnerSurviving = {};

@@ -4,12 +4,14 @@ const MapRenderer = {
     armiesLayer: null,
     arrowsLayer: null,
     labelsLayer: null,
+    hoverLayer: null,
 
     init() {
         this.svg = document.getElementById("game-map");
         this.armiesLayer = document.getElementById("armies-layer");
         this.arrowsLayer = document.getElementById("arrows-layer");
         this.labelsLayer = document.getElementById("labels-layer");
+        this.hoverLayer = document.getElementById("hover-layer");
 
         this.initProvincePaths();
         this.initYezoPaths();
@@ -285,6 +287,42 @@ const MapRenderer = {
             this.arrowsLayer.appendChild(line);
             this.arrowsLayer.appendChild(label);
         });
+
+        // Draw retreat arrows
+        (GameState.retreatingArmies || []).forEach(retreat => {
+            // Current position
+            let currentProvId;
+            if (retreat.currentStep === 0) {
+                currentProvId = retreat.fromProvince;
+            } else {
+                const idx = Math.min(retreat.currentStep, retreat.path.length - 1);
+                currentProvId = retreat.path[idx];
+            }
+
+            const destProvId = retreat.destination;
+            if (!currentProvId || !destProvId || currentProvId === destProvId) return;
+
+            const fromProv = PROVINCE_MAP[currentProvId];
+            const toProv = PROVINCE_MAP[destProvId];
+            if (!fromProv || !toProv) return;
+
+            const fromPt = fromProv.centroid || fromProv.center;
+            const toPt = toProv.centroid || toProv.center;
+            const clan = GameState.getClan(retreat.clanId);
+
+            const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+            line.setAttribute("x1", fromPt.x);
+            line.setAttribute("y1", fromPt.y);
+            line.setAttribute("x2", toPt.x);
+            line.setAttribute("y2", toPt.y);
+            line.setAttribute("stroke", "#f0a028");
+            line.setAttribute("stroke-width", "1");
+            line.setAttribute("stroke-dasharray", "2,2");
+            line.setAttribute("marker-end", "url(#arrow-retreat)");
+            line.setAttribute("opacity", "0.6");
+            line.setAttribute("class", "order-arrow");
+            this.arrowsLayer.appendChild(line);
+        });
     },
 
     update() {
@@ -311,6 +349,48 @@ const MapRenderer = {
                 path.setAttribute("fill", "#3a3a2a");
                 path.setAttribute("fill-opacity", "0.5");
             });
+        });
+        this.sendUnclaimedToBack();
+    },
+
+    // Show hover overlay: clone province paths into the hover layer (above all provinces)
+    showHoverOverlay(provinceId) {
+        this.hoverLayer.innerHTML = "";
+        if (!provinceId) return;
+        const prov = PROVINCE_MAP[provinceId];
+        if (!prov) return;
+        prov.pathIds.forEach(pid => {
+            const orig = this.svg.getElementById(pid);
+            if (!orig) return;
+            const use = document.createElementNS("http://www.w3.org/2000/svg", "use");
+            use.setAttributeNS("http://www.w3.org/1999/xlink", "href", "#" + pid);
+            use.setAttribute("fill", orig.getAttribute("fill"));
+            use.setAttribute("fill-opacity", "0.8");
+            use.setAttribute("stroke", "#e8d5b0");
+            use.setAttribute("stroke-width", "3");
+            use.setAttribute("pointer-events", "none");
+            this.hoverLayer.appendChild(use);
+        });
+    },
+
+    clearHoverOverlay() {
+        this.hoverLayer.innerHTML = "";
+    },
+
+    // Send unclaimed province paths to the back of the SVG (behind claimed ones)
+    sendUnclaimedToBack() {
+        const firstPath = this.svg.querySelector(".province-path");
+        if (!firstPath) return;
+        PROVINCES.forEach(prov => {
+            const state = GameState.provinces[prov.id];
+            if (!state || !state.owner) {
+                prov.pathIds.forEach(pid => {
+                    const path = this.svg.getElementById(pid);
+                    if (path && path.parentNode) {
+                        path.parentNode.insertBefore(path, firstPath);
+                    }
+                });
+            }
         });
     },
 
