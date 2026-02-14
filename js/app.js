@@ -7,9 +7,10 @@ function closeAllOverlays(exceptId) {
             document.getElementById(id).classList.add("hidden");
         }
     });
-    // Also close the province side panel unless it's the one we're keeping
+    // Also close the province side panel + clan panel unless keeping them
     if (exceptId !== "side-panel") {
         document.getElementById("side-panel").classList.add("hidden");
+        ClanPanel.hide();
         if (MapInteraction.selectedProvince) {
             MapRenderer.highlightProvince(MapInteraction.selectedProvince, false);
             MapInteraction.selectedProvince = null;
@@ -32,6 +33,7 @@ const App = {
         MapRenderer.init();
         MapInteraction.init();
         Panels.init();
+        ClanPanel.init();
         Dashboard.init();
         HistoryLog.init();
         Admin.init();

@@ -4,6 +4,7 @@ const Panels = {
         // Close button
         document.getElementById("panel-close").addEventListener("click", () => {
             document.getElementById("side-panel").classList.add("hidden");
+            ClanPanel.hide();
             if (MapInteraction.selectedProvince) {
                 MapRenderer.highlightProvince(MapInteraction.selectedProvince, false);
                 MapInteraction.selectedProvince = null;
@@ -18,6 +19,13 @@ const Panels = {
         if (!prov || !state) return;
 
         panel.classList.remove("hidden");
+
+        // Show CK3-style clan overview on the left if province has owner
+        if (state.owner) {
+            ClanPanel.show(state.owner);
+        } else {
+            ClanPanel.hide();
+        }
 
         // Province name
         document.getElementById("panel-province-name").textContent =
@@ -341,5 +349,206 @@ const Panels = {
         } else {
             Notifications.show(result.error, "error");
         }
+    }
+};
+
+// CK3-style Clan Overview Panel (Left side)
+const ClanPanel = {
+    currentClan: null,
+
+    init() {
+        document.getElementById("clan-panel-close").addEventListener("click", () => {
+            this.hide();
+            document.getElementById("side-panel").classList.add("hidden");
+            if (MapInteraction.selectedProvince) {
+                MapRenderer.highlightProvince(MapInteraction.selectedProvince, false);
+                MapInteraction.selectedProvince = null;
+            }
+        });
+
+        // Re-render when Roblox avatars finish loading
+        RobloxAvatar.onLoad(() => {
+            if (this.currentClan) {
+                this.render(this.currentClan);
+            }
+        });
+    },
+
+    show(clanId) {
+        if (!clanId) { this.hide(); return; }
+        const clan = GameState.getClan(clanId);
+        if (!clan) { this.hide(); return; }
+
+        this.currentClan = clanId;
+        const panel = document.getElementById("clan-panel");
+        panel.classList.remove("hidden");
+        this.render(clanId);
+    },
+
+    hide() {
+        document.getElementById("clan-panel").classList.add("hidden");
+        this.currentClan = null;
+    },
+
+    render(clanId) {
+        const clan = GameState.getClan(clanId);
+        const family = CLAN_FAMILIES[clanId];
+        if (!clan || !family) return;
+
+        const ownedProvinces = GameState.getOwnedProvinces(clanId);
+        const totalTroops = GameState.getTotalTroops(clanId) + ArmySystem.getTroopsInBattle(clanId);
+        const allies = GameState.getAllies(clanId);
+        const homeProv = PROVINCE_MAP[clan.homeProvince];
+
+        // Portrait area
+        this.renderPortrait(clan, family);
+
+        // Info bar
+        document.getElementById("clan-info-bar").innerHTML = `
+            <div class="ck3-realm-info">
+                <div class="ck3-realm-stat">
+                    <span class="stat-icon">&#x1F3EF;</span>
+                    <span class="stat-val">${ownedProvinces.length}</span>
+                    <span>provinces</span>
+                </div>
+                <div class="ck3-realm-stat">
+                    <span class="stat-icon">&#x2694;&#xFE0F;</span>
+                    <span class="stat-val">${allies.length}</span>
+                    <span>allies</span>
+                </div>
+            </div>
+        `;
+
+        // Stats bar
+        const troopPlayers = totalTroops / TROOP_RATIO;
+        const capPlayers = clan.rallyCap / TROOP_RATIO;
+        document.getElementById("clan-stats-bar").innerHTML = `
+            <div class="ck3-stat-cell">
+                <span class="ck3-stat-icon">&#x2694;&#xFE0F;</span>
+                <span class="ck3-stat-value">${totalTroops.toLocaleString()}</span>
+                <span class="ck3-stat-label">Ashigaru</span>
+            </div>
+            <div class="ck3-stat-cell">
+                <span class="ck3-stat-icon">&#x1F3AF;</span>
+                <span class="ck3-stat-value">${clan.rallyCap.toLocaleString()}</span>
+                <span class="ck3-stat-label">Rally Cap</span>
+            </div>
+            <div class="ck3-stat-cell">
+                <span class="ck3-stat-icon">&#x1F464;</span>
+                <span class="ck3-stat-value">${troopPlayers}/${capPlayers}</span>
+                <span class="ck3-stat-label">Men</span>
+            </div>
+        `;
+
+        // Family grid
+        this.renderFamily(clanId, family);
+
+        // Alliances
+        this.renderAlliances(clanId, allies);
+    },
+
+    renderPortrait(clan, family) {
+        const leader = family.leader;
+        const leaderMarried = Diplomacy.isMarried(leader.id);
+        let spouseHtml = "";
+
+        if (leaderMarried) {
+            const alliance = GameState.alliances.find(a =>
+                a.person1 === leader.id || a.person2 === leader.id
+            );
+            if (alliance) {
+                const spouseId = alliance.person1 === leader.id ? alliance.person2 : alliance.person1;
+                const spouse = Diplomacy.getPerson(spouseId);
+                if (spouse) {
+                    spouseHtml = `
+                        <div class="ck3-spouse-portrait">
+                            ${RobloxAvatar.img(spouse.robloxId, 48, "ck3-avatar")}
+                            <span class="ck3-spouse-label">Spouse</span>
+                        </div>
+                    `;
+                }
+            }
+        }
+
+        const homeProv = PROVINCE_MAP[clan.homeProvince];
+        document.getElementById("clan-portrait-area").innerHTML = `
+            <div class="ck3-leader-portrait">
+                ${RobloxAvatar.img(leader.robloxId, 100, "ck3-avatar")}
+                ${spouseHtml}
+            </div>
+            <div class="ck3-leader-details">
+                <div class="ck3-leader-name">${leader.name}</div>
+                <div class="ck3-clan-name" style="color: ${clan.color}">${clan.japaneseName} ${clan.name}</div>
+                <div class="ck3-leader-title">${leader.title}</div>
+                ${homeProv ? `<div class="ck3-capital-badge">&#x1F3EF; ${homeProv.japaneseName} ${homeProv.name}</div>` : ""}
+            </div>
+        `;
+    },
+
+    renderFamily(clanId, family) {
+        const container = document.getElementById("clan-family-grid");
+        const children = family.children;
+
+        container.innerHTML = `
+            <div class="ck3-family-header">Family (${children.length})</div>
+            <div class="ck3-family-row">
+                ${children.map(child => {
+                    const married = Diplomacy.isMarried(child.id);
+                    const genderIcon = child.gender === "male" ? "&#9794;" : "&#9792;";
+                    const genderClass = child.gender;
+
+                    let marriedBadge = "";
+                    if (married) {
+                        const alliance = GameState.alliances.find(a =>
+                            a.person1 === child.id || a.person2 === child.id
+                        );
+                        if (alliance) {
+                            const spouseId = alliance.person1 === child.id ? alliance.person2 : alliance.person1;
+                            const spouse = Diplomacy.getPerson(spouseId);
+                            if (spouse) {
+                                const spouseClan = GameState.getClan(spouse.clanId);
+                                marriedBadge = `<span class="ck3-married-badge" title="Married to ${spouse.name} (${spouseClan ? spouseClan.name : '?'})">&#10084; ${spouse.name.split(' ').pop()}</span>`;
+                            }
+                        }
+                    }
+
+                    return `
+                        <div class="ck3-family-member ${married ? "married" : ""}">
+                            <span class="ck3-gender ${genderClass}">${genderIcon}</span>
+                            ${RobloxAvatar.img(child.robloxId, 48, "ck3-avatar")}
+                            <span class="ck3-member-name">${child.name.split(' ').pop()}</span>
+                            ${marriedBadge}
+                        </div>
+                    `;
+                }).join("")}
+            </div>
+        `;
+    },
+
+    renderAlliances(clanId, allies) {
+        const container = document.getElementById("clan-alliances-bar");
+        if (allies.length === 0) {
+            container.innerHTML = `
+                <div class="ck3-family-header">Alliances</div>
+                <div class="empty-state" style="padding: 6px; font-size: 10px;">No marriage alliances</div>
+            `;
+            return;
+        }
+
+        container.innerHTML = `
+            <div class="ck3-family-header">Alliances (${allies.length})</div>
+            <div class="ck3-alliance-row">
+                ${allies.map(aId => {
+                    const ally = GameState.getClan(aId);
+                    const allyFamily = CLAN_FAMILIES[aId];
+                    return `
+                        <div class="ck3-alliance-chip" onclick="ClanPanel.show('${aId}')" title="${ally.japaneseName} ${ally.name}">
+                            ${allyFamily ? RobloxAvatar.img(allyFamily.leader.robloxId, 24, "ck3-ally-avatar") : ""}
+                            <span class="ck3-ally-name" style="color: ${ally.color}">${ally.name}</span>
+                        </div>
+                    `;
+                }).join("")}
+            </div>
+        `;
     }
 };
