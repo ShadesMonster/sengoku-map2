@@ -42,24 +42,8 @@ const App = {
         // Update all UI
         this.updateUI();
 
-        // Populate clan selector
-        this.updateClanSelector();
-
-        // Initialize auth (Discord login)
+        // Initialize auth (Discord login - sets selectedClan from account)
         Auth.init();
-
-        // Clan selector change
-        document.getElementById("clan-selector").addEventListener("change", (e) => {
-            GameState.selectedClan = e.target.value || null;
-            GameState.save();
-            MapRenderer.update();
-            this.updateUI();
-        });
-
-        // Restore selected clan
-        if (GameState.selectedClan) {
-            document.getElementById("clan-selector").value = GameState.selectedClan;
-        }
 
         // Start countdown timer
         this.startCountdown();
@@ -78,18 +62,6 @@ const App = {
 
         // Week display
         document.getElementById("week-display").textContent = `Week ${GameState.week}`;
-    },
-
-    updateClanSelector() {
-        const select = document.getElementById("clan-selector");
-        const current = select.value;
-        select.innerHTML = '<option value="">Select Clan...</option>' +
-            Object.values(GameState.clans)
-                .map(c => `<option value="${c.id}" style="color:${c.color}">${c.japaneseName} ${c.name}</option>`)
-                .join("");
-        if (current && GameState.clans[current]) {
-            select.value = current;
-        }
     },
 
     startCountdown() {

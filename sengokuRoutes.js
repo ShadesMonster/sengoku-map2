@@ -37,7 +37,7 @@ module.exports = function createSengokuRouter(pool) {
     router.use((req, res, next) => {
         res.header('Access-Control-Allow-Origin', '*');
         res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-        res.header('Access-Control-Allow-Headers', 'Content-Type');
+        res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
         if (req.method === 'OPTIONS') return res.sendStatus(204);
         next();
     });
@@ -513,6 +513,39 @@ module.exports = function createSengokuRouter(pool) {
         } catch (err) {
             console.error('[Sengoku] GET /avatars error:', err);
             res.status(502).json({ error: 'Failed to reach Roblox API: ' + err.message });
+        }
+    });
+
+    // ============================================================
+    // GET /clans  -  All clans from roblox_clans (name, description, daimyo)
+    // ============================================================
+    router.get('/clans', async (req, res) => {
+        try {
+            const [rows] = await pool.query(`
+                SELECT clan_id, name, icon, description,
+                       daimyo_user_id, daimyo_username, daimyo_rp_name, daimyo_last_seen,
+                       discord_role_id
+                FROM roblox_clans
+                ORDER BY name ASC
+            `);
+
+            const clans = rows.map(row => ({
+                clanId: row.clan_id,
+                name: row.name,
+                icon: row.icon || null,
+                description: row.description || null,
+                daimyo: row.daimyo_user_id ? {
+                    robloxId: Number(row.daimyo_user_id),
+                    username: row.daimyo_username,
+                    rpName: row.daimyo_rp_name,
+                    lastSeen: row.daimyo_last_seen ? Number(row.daimyo_last_seen) : null,
+                } : null,
+            }));
+
+            res.json({ clans });
+        } catch (err) {
+            console.error('[Sengoku] GET /clans error:', err);
+            res.status(500).json({ error: 'Database error: ' + err.message });
         }
     });
 

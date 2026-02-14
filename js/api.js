@@ -32,6 +32,13 @@ const API = {
         return data;
     },
 
+    // ---- Clans ----
+
+    // Fetch all clans from roblox_clans table
+    async getClans() {
+        return this.request("clans");
+    },
+
     // ---- Families ----
 
     // Fetch all clan families from database
@@ -100,6 +107,8 @@ const API = {
 // ============================================================
 // Auth - Discord OAuth2 login for the map
 // ============================================================
+const ADMIN_DISCORD_ID = "186807769238732800";
+
 const Auth = {
     user: null, // { discordId, username, avatarUrl, robloxId, clanId, clanName, clanKey }
 
@@ -113,6 +122,10 @@ const Auth = {
 
     clearToken() {
         localStorage.removeItem("shogunate_token");
+    },
+
+    isAdmin() {
+        return this.user && this.user.discordId === ADMIN_DISCORD_ID;
     },
 
     // Redirect to Discord OAuth2 login
@@ -139,6 +152,7 @@ const Auth = {
         }
         this.clearToken();
         this.user = null;
+        GameState.selectedClan = null;
         Auth.updateUI();
     },
 
@@ -153,7 +167,6 @@ const Auth = {
             });
 
             if (!res.ok) {
-                // Token expired or invalid
                 this.clearToken();
                 this.user = null;
                 return null;
@@ -171,21 +184,17 @@ const Auth = {
     checkCallback() {
         const params = new URLSearchParams(window.location.search);
 
-        // Handle auth errors
         const authError = params.get("auth_error");
         if (authError) {
             console.error("[Auth] Login error:", authError);
             Notifications.show("Login failed: " + authError, "error");
-            // Clean URL
             window.history.replaceState({}, "", window.location.pathname);
             return;
         }
 
-        // Handle successful login (token in URL)
         const token = params.get("token");
         if (token) {
             this.setToken(token);
-            // Clean URL
             window.history.replaceState({}, "", window.location.pathname);
         }
     },
@@ -201,11 +210,13 @@ const Auth = {
                 : "";
 
             container.innerHTML = `
-                <div class="auth-user">
+                <div class="auth-user" onclick="Auth.toggleMenu()" title="Click to logout">
                     ${avatarHtml}
                     <span class="auth-username">${this.user.username}</span>
                     ${this.user.clanName ? `<span class="auth-clan">${this.user.clanName}</span>` : ""}
-                    <button class="auth-btn auth-logout" onclick="Auth.logout()">Logout</button>
+                </div>
+                <div id="auth-menu" class="auth-menu hidden">
+                    <button class="auth-menu-item" onclick="Auth.logout()">Logout</button>
                 </div>
             `;
         } else {
@@ -213,27 +224,35 @@ const Auth = {
                 <button class="auth-btn auth-login" onclick="Auth.login()">Login with Discord</button>
             `;
         }
+
+        // Show/hide admin button based on who's logged in
+        const adminBtn = document.getElementById("btn-admin");
+        if (adminBtn) {
+            adminBtn.classList.toggle("hidden", !this.isAdmin());
+        }
     },
 
-    // Initialize: check callback, fetch user, update UI, auto-select clan
+    toggleMenu() {
+        const menu = document.getElementById("auth-menu");
+        if (menu) menu.classList.toggle("hidden");
+    },
+
+    // Initialize: check callback, fetch user, update UI, set clan from login
     async init() {
         this.checkCallback();
         await this.fetchUser();
         this.updateUI();
 
-        // Auto-select the user's clan if they're logged in and haven't picked one
+        // Set selected clan from login
         if (this.user && this.user.clanKey) {
-            const selector = document.getElementById("clan-selector");
-            if (selector && !GameState.selectedClan) {
-                // Try to match clan key to selector options
-                for (const option of selector.options) {
-                    if (option.value.toLowerCase() === this.user.clanKey.toLowerCase()) {
-                        selector.value = option.value;
-                        GameState.selectedClan = option.value;
-                        GameState.save();
-                        MapRenderer.update();
-                        break;
-                    }
+            // Match clan key to GameState clan IDs
+            for (const clanId of Object.keys(GameState.clans)) {
+                if (clanId.toLowerCase() === this.user.clanKey.toLowerCase()) {
+                    GameState.selectedClan = clanId;
+                    GameState.save();
+                    MapRenderer.update();
+                    App.updateUI();
+                    break;
                 }
             }
         }

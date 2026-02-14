@@ -194,6 +194,55 @@ body {
     border-color: var(--accent-red);
 }
 
+.auth-user {
+    cursor: pointer;
+    position: relative;
+}
+
+#auth-container {
+    position: relative;
+}
+
+.auth-menu {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    margin-top: 4px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    z-index: 200;
+    min-width: 100px;
+    box-shadow: 0 4px 12px var(--shadow);
+}
+
+.auth-menu.hidden {
+    display: none;
+}
+
+.auth-menu-item {
+    display: block;
+    width: 100%;
+    padding: 8px 12px;
+    background: none;
+    border: none;
+    color: var(--text-primary);
+    font-family: inherit;
+    font-size: 12px;
+    cursor: pointer;
+    text-align: left;
+}
+
+.auth-menu-item:hover {
+    background: var(--accent-red);
+    color: #fff;
+}
+
+/* Hidden utility */
+.hidden {
+    display: none !important;
+}
+
 #clan-selector {
     padding: 4px 8px;
     background: var(--bg-card);
