@@ -9,9 +9,13 @@ const FAQ = {
 
     toggle() {
         const panel = document.getElementById("faq-panel");
-        panel.classList.toggle("hidden");
-        if (!panel.classList.contains("hidden")) {
+        const wasHidden = panel.classList.contains("hidden");
+        closeAllOverlays("faq-panel");
+        if (wasHidden) {
+            panel.classList.remove("hidden");
             this.render();
+        } else {
+            panel.classList.add("hidden");
         }
     },
 

@@ -1,4 +1,14 @@
 // Main Application - Initialization and coordination
+const OVERLAY_PANEL_IDS = ["dashboard-panel", "history-panel", "admin-panel", "faq-panel"];
+
+function closeAllOverlays(exceptId) {
+    OVERLAY_PANEL_IDS.forEach(id => {
+        if (id !== exceptId) {
+            document.getElementById(id).classList.add("hidden");
+        }
+    });
+}
+
 const App = {
     countdownInterval: null,
 

@@ -43,9 +43,13 @@ const Admin = {
 
     toggle() {
         const panel = document.getElementById("admin-panel");
-        panel.classList.toggle("hidden");
-        if (!panel.classList.contains("hidden")) {
+        const wasHidden = panel.classList.contains("hidden");
+        closeAllOverlays("admin-panel");
+        if (wasHidden) {
+            panel.classList.remove("hidden");
             this.render();
+        } else {
+            panel.classList.add("hidden");
         }
     },
 

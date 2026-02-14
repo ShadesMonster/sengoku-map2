@@ -23,9 +23,13 @@ const Dashboard = {
 
     toggle() {
         const panel = document.getElementById("dashboard-panel");
-        panel.classList.toggle("hidden");
-        if (!panel.classList.contains("hidden")) {
+        const wasHidden = panel.classList.contains("hidden");
+        closeAllOverlays("dashboard-panel");
+        if (wasHidden) {
+            panel.classList.remove("hidden");
             this.render();
+        } else {
+            panel.classList.add("hidden");
         }
     },
 
@@ -512,9 +516,13 @@ const HistoryLog = {
 
     toggle() {
         const panel = document.getElementById("history-panel");
-        panel.classList.toggle("hidden");
-        if (!panel.classList.contains("hidden")) {
+        const wasHidden = panel.classList.contains("hidden");
+        closeAllOverlays("history-panel");
+        if (wasHidden) {
+            panel.classList.remove("hidden");
             this.render();
+        } else {
+            panel.classList.add("hidden");
         }
     },
 
