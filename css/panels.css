@@ -269,9 +269,143 @@
     color: #ff77aa;
 }
 
+/* Family sections */
+.ck3-family-section {
+    margin-bottom: 8px;
+}
+
+.ck3-family-section:last-child {
+    margin-bottom: 0;
+}
+
+.ck3-family-member {
+    cursor: pointer;
+}
+
+.ck3-family-member:hover .ck3-avatar {
+    border-color: var(--accent-gold) !important;
+}
+
+.ck3-family-member.daimyo .ck3-avatar {
+    border-color: var(--accent-gold);
+}
+
+/* Member Detail Popup */
+#member-popup {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: linear-gradient(180deg, #2a2a1c, #1e1e14);
+    border-top: 2px solid var(--accent-gold);
+    padding: 12px 16px;
+    z-index: 10;
+    box-shadow: 0 -4px 16px rgba(0,0,0,0.5);
+}
+
+#member-popup.hidden {
+    display: none;
+}
+
+.popup-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+}
+
+.popup-info {
+    flex: 1;
+}
+
+.popup-name {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.popup-role {
+    font-size: 11px;
+    font-weight: 500;
+}
+
+.popup-status-text {
+    font-size: 10px;
+    color: var(--text-muted);
+}
+
+.popup-spouse {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    background: var(--bg-card);
+    border-radius: 4px;
+    margin-bottom: 8px;
+}
+
+.popup-spouse-name {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+.popup-spouse-clan {
+    font-size: 10px;
+}
+
+.popup-action {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 6px;
+}
+
+.popup-action label {
+    font-size: 10px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.popup-action select {
+    padding: 5px 8px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 11px;
+}
+
+.popup-action .small-btn {
+    padding: 6px 12px;
+    font-size: 11px;
+}
+
+.popup-status {
+    font-size: 10px;
+    color: var(--text-muted);
+    font-style: italic;
+    margin-top: 4px;
+}
+
 /* Alliances bar */
 #clan-alliances-bar {
     padding: 10px 16px;
+}
+
+.ck3-dissolve {
+    font-size: 14px;
+    color: var(--text-muted);
+    cursor: pointer;
+    margin-left: auto;
+    padding: 0 2px;
+    line-height: 1;
+}
+
+.ck3-dissolve:hover {
+    color: var(--accent-red);
 }
 
 .ck3-alliance-row {
@@ -308,6 +442,62 @@
 .ck3-alliance-chip .ck3-ally-name {
     color: var(--text-secondary);
     font-weight: 500;
+}
+
+/* Proposals bar */
+#clan-proposals-bar {
+    padding: 0 16px 10px;
+}
+
+.ck3-proposal-card {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    background: var(--bg-card);
+    border-radius: 4px;
+    margin-bottom: 4px;
+    font-size: 11px;
+}
+
+.ck3-proposal-card.incoming {
+    border-left: 3px solid var(--accent-gold);
+}
+
+.ck3-proposal-card.sent {
+    opacity: 0.7;
+    border-left: 3px solid var(--border);
+}
+
+.ck3-proposal-people {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    flex-shrink: 0;
+}
+
+.ck3-proposal-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
+}
+
+.ck3-proposal-info span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ck3-proposal-from {
+    font-size: 9px;
+}
+
+.ck3-proposal-actions {
+    display: flex;
+    gap: 3px;
+    flex-shrink: 0;
 }
 
 /* === Side Panel (Province Details) === */

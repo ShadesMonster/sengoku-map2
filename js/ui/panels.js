@@ -366,6 +366,13 @@ const ClanPanel = {
             }
         });
 
+        // Close member popup when clicking outside
+        document.getElementById("clan-panel-content").addEventListener("click", (e) => {
+            if (!e.target.closest(".ck3-family-member") && !e.target.closest("#member-popup")) {
+                this.closeMemberPopup();
+            }
+        });
+
         // Re-render when Roblox avatars finish loading
         RobloxAvatar.onLoad(() => {
             if (this.currentClan) {
@@ -380,13 +387,14 @@ const ClanPanel = {
         if (!clan) { this.hide(); return; }
 
         this.currentClan = clanId;
-        const panel = document.getElementById("clan-panel");
-        panel.classList.remove("hidden");
+        document.getElementById("clan-panel").classList.remove("hidden");
+        this.closeMemberPopup();
         this.render(clanId);
     },
 
     hide() {
         document.getElementById("clan-panel").classList.add("hidden");
+        this.closeMemberPopup();
         this.currentClan = null;
     },
 
@@ -398,7 +406,7 @@ const ClanPanel = {
         const ownedProvinces = GameState.getOwnedProvinces(clanId);
         const totalTroops = GameState.getTotalTroops(clanId) + ArmySystem.getTroopsInBattle(clanId);
         const allies = GameState.getAllies(clanId);
-        const homeProv = PROVINCE_MAP[clan.homeProvince];
+        const isOwnClan = clanId === GameState.selectedClan;
 
         // Portrait area
         this.renderPortrait(clan, family);
@@ -440,11 +448,14 @@ const ClanPanel = {
             </div>
         `;
 
-        // Family grid
+        // Family grid (Parents / Children / Siblings)
         this.renderFamily(clanId, family);
 
         // Alliances
         this.renderAlliances(clanId, allies);
+
+        // Proposals (only for own clan)
+        this.renderProposals(clanId, isOwnClan);
     },
 
     renderPortrait(clan, family) {
@@ -461,7 +472,7 @@ const ClanPanel = {
                 const spouse = Diplomacy.getPerson(spouseId);
                 if (spouse) {
                     spouseHtml = `
-                        <div class="ck3-spouse-portrait">
+                        <div class="ck3-spouse-portrait" onclick="ClanPanel.showMemberPopup('${spouseId}', this)" title="${spouse.name}">
                             ${RobloxAvatar.img(spouse.robloxId, 48, "ck3-avatar")}
                             <span class="ck3-spouse-label">Spouse</span>
                         </div>
@@ -472,7 +483,7 @@ const ClanPanel = {
 
         const homeProv = PROVINCE_MAP[clan.homeProvince];
         document.getElementById("clan-portrait-area").innerHTML = `
-            <div class="ck3-leader-portrait">
+            <div class="ck3-leader-portrait" onclick="ClanPanel.showMemberPopup('${leader.id}', this)">
                 ${RobloxAvatar.img(leader.robloxId, 100, "ck3-avatar")}
                 ${spouseHtml}
             </div>
@@ -485,48 +496,174 @@ const ClanPanel = {
         `;
     },
 
-    renderFamily(clanId, family) {
-        const container = document.getElementById("clan-family-grid");
-        const children = family.children;
+    _renderMemberCard(person, clanId) {
+        const married = Diplomacy.isMarried(person.id);
+        const genderIcon = person.gender === "male" ? "&#9794;" : "&#9792;";
+        const genderClass = person.gender;
+        const isDaimyo = !!person.title;
+        const shortName = isDaimyo ? person.name : person.name.split(' ').pop();
 
-        container.innerHTML = `
-            <div class="ck3-family-header">Family (${children.length})</div>
-            <div class="ck3-family-row">
-                ${children.map(child => {
-                    const married = Diplomacy.isMarried(child.id);
-                    const genderIcon = child.gender === "male" ? "&#9794;" : "&#9792;";
-                    const genderClass = child.gender;
+        let marriedBadge = "";
+        if (married) {
+            const alliance = GameState.alliances.find(a =>
+                a.person1 === person.id || a.person2 === person.id
+            );
+            if (alliance) {
+                const spouseId = alliance.person1 === person.id ? alliance.person2 : alliance.person1;
+                const spouse = Diplomacy.getPerson(spouseId);
+                if (spouse) {
+                    marriedBadge = `<span class="ck3-married-badge">&#10084;</span>`;
+                }
+            }
+        }
 
-                    let marriedBadge = "";
-                    if (married) {
-                        const alliance = GameState.alliances.find(a =>
-                            a.person1 === child.id || a.person2 === child.id
-                        );
-                        if (alliance) {
-                            const spouseId = alliance.person1 === child.id ? alliance.person2 : alliance.person1;
-                            const spouse = Diplomacy.getPerson(spouseId);
-                            if (spouse) {
-                                const spouseClan = GameState.getClan(spouse.clanId);
-                                marriedBadge = `<span class="ck3-married-badge" title="Married to ${spouse.name} (${spouseClan ? spouseClan.name : '?'})">&#10084; ${spouse.name.split(' ').pop()}</span>`;
-                            }
-                        }
-                    }
-
-                    return `
-                        <div class="ck3-family-member ${married ? "married" : ""}">
-                            <span class="ck3-gender ${genderClass}">${genderIcon}</span>
-                            ${RobloxAvatar.img(child.robloxId, 48, "ck3-avatar")}
-                            <span class="ck3-member-name">${child.name.split(' ').pop()}</span>
-                            ${marriedBadge}
-                        </div>
-                    `;
-                }).join("")}
+        return `
+            <div class="ck3-family-member ${married ? "married" : ""} ${isDaimyo ? "daimyo" : ""}"
+                 onclick="ClanPanel.showMemberPopup('${person.id}', this)" title="${person.name}">
+                <span class="ck3-gender ${genderClass}">${genderIcon}</span>
+                ${RobloxAvatar.img(person.robloxId, 48, "ck3-avatar")}
+                <span class="ck3-member-name">${shortName}</span>
+                ${marriedBadge}
             </div>
         `;
     },
 
+    renderFamily(clanId, family) {
+        const container = document.getElementById("clan-family-grid");
+        const leader = family.leader;
+        const children = family.children;
+
+        // Separate children by gender to approximate siblings concept
+        // "Daimyo" section = the leader (parent)
+        // "Children" section = the children
+        let html = "";
+
+        // Daimyo (Parent)
+        html += `<div class="ck3-family-section">`;
+        html += `<div class="ck3-family-header">Daimyo</div>`;
+        html += `<div class="ck3-family-row">`;
+        html += this._renderMemberCard(leader, clanId);
+        html += `</div></div>`;
+
+        // Children
+        if (children.length > 0) {
+            html += `<div class="ck3-family-section">`;
+            html += `<div class="ck3-family-header">Children (${children.length})</div>`;
+            html += `<div class="ck3-family-row">`;
+            children.forEach(child => {
+                html += this._renderMemberCard(child, clanId);
+            });
+            html += `</div></div>`;
+        }
+
+        container.innerHTML = html;
+    },
+
+    // Member popup - shows detail when clicking a family member
+    showMemberPopup(personId, element) {
+        event.stopPropagation();
+        const person = Diplomacy.getPerson(personId);
+        if (!person) return;
+
+        const popup = document.getElementById("member-popup");
+        const clan = GameState.getClan(person.clanId);
+        const married = Diplomacy.isMarried(personId);
+        const isDaimyo = !!person.title;
+        const myClan = GameState.selectedClan;
+        const isOtherClan = myClan && person.clanId !== myClan;
+
+        let spouseInfo = "";
+        if (married) {
+            const alliance = GameState.alliances.find(a =>
+                a.person1 === personId || a.person2 === personId
+            );
+            if (alliance) {
+                const spouseId = alliance.person1 === personId ? alliance.person2 : alliance.person1;
+                const spouse = Diplomacy.getPerson(spouseId);
+                if (spouse) {
+                    const spouseClan = GameState.getClan(spouse.clanId);
+                    spouseInfo = `
+                        <div class="popup-spouse">
+                            <span class="marriage-heart">&#10084;</span>
+                            ${RobloxAvatar.img(spouse.robloxId, 28, "ck3-avatar")}
+                            <div>
+                                <div class="popup-spouse-name">${spouse.name}</div>
+                                <div class="popup-spouse-clan" style="color: ${spouseClan ? spouseClan.color : '#888'}">${spouseClan ? spouseClan.name : '?'}</div>
+                            </div>
+                        </div>
+                    `;
+                }
+            }
+        }
+
+        // Marriage action: show if this is another clan's unmarried member and player has unmarried members
+        let actionHtml = "";
+        if (!married && isOtherClan) {
+            const myUnmarried = Diplomacy.getUnmarriedMembers(myClan);
+            const alreadyAllied = GameState.areAllied(myClan, person.clanId);
+            if (myUnmarried.length > 0 && !alreadyAllied) {
+                actionHtml = `
+                    <div class="popup-action">
+                        <label>Propose marriage with:</label>
+                        <select id="popup-my-member">
+                            ${myUnmarried.map(m => {
+                                const icon = m.gender === "male" ? "&#9794;" : "&#9792;";
+                                const tag = m.title ? " (Daimyo)" : "";
+                                return `<option value="${m.id}">${icon} ${m.name}${tag}</option>`;
+                            }).join("")}
+                        </select>
+                        <button class="small-btn commit" onclick="ClanPanel.proposeFromPopup('${personId}')">Propose Marriage</button>
+                    </div>
+                `;
+            } else if (alreadyAllied) {
+                actionHtml = `<div class="popup-status">Already allied with this clan</div>`;
+            }
+        }
+
+        const genderIcon = person.gender === "male" ? "&#9794;" : "&#9792;";
+
+        popup.innerHTML = `
+            <div class="popup-header">
+                ${RobloxAvatar.img(person.robloxId, 44, "ck3-avatar")}
+                <div class="popup-info">
+                    <div class="popup-name">${person.name} <span class="ck3-gender ${person.gender}" style="position:static;background:none;border:none">${genderIcon}</span></div>
+                    <div class="popup-role" style="color: ${clan ? clan.color : '#888'}">${isDaimyo ? "Daimyo" : "Child"} — ${clan ? clan.name : "?"}</div>
+                    <div class="popup-status-text">${married ? "Married" : "Unmarried"}</div>
+                </div>
+            </div>
+            ${spouseInfo}
+            ${actionHtml}
+        `;
+
+        popup.classList.remove("hidden");
+    },
+
+    closeMemberPopup() {
+        document.getElementById("member-popup").classList.add("hidden");
+    },
+
+    proposeFromPopup(targetPersonId) {
+        const myClan = GameState.selectedClan;
+        if (!myClan) return;
+
+        const myMemberId = document.getElementById("popup-my-member").value;
+        const targetPerson = Diplomacy.getPerson(targetPersonId);
+        if (!myMemberId || !targetPerson) return;
+
+        const result = Diplomacy.proposeMarriage(myClan, myMemberId, targetPerson.clanId, targetPersonId);
+        if (result.success) {
+            Notifications.show("Marriage proposal sent!", "success");
+            this.closeMemberPopup();
+            this.render(this.currentClan);
+        } else {
+            Notifications.show(result.error, "error");
+        }
+    },
+
     renderAlliances(clanId, allies) {
         const container = document.getElementById("clan-alliances-bar");
+        const isOwnClan = clanId === GameState.selectedClan;
+
         if (allies.length === 0) {
             container.innerHTML = `
                 <div class="ck3-family-header">Alliances</div>
@@ -541,14 +678,110 @@ const ClanPanel = {
                 ${allies.map(aId => {
                     const ally = GameState.getClan(aId);
                     const allyFamily = CLAN_FAMILIES[aId];
+                    const marriage = Diplomacy.getMarriageInfo(clanId, aId);
+                    let coupleTitle = ally.name;
+                    if (marriage && marriage.person1 && marriage.person2) {
+                        coupleTitle = `${marriage.person1.name} & ${marriage.person2.name}`;
+                    }
                     return `
-                        <div class="ck3-alliance-chip" onclick="ClanPanel.show('${aId}')" title="${ally.japaneseName} ${ally.name}">
+                        <div class="ck3-alliance-chip" onclick="ClanPanel.show('${aId}')" title="${coupleTitle}">
                             ${allyFamily ? RobloxAvatar.img(allyFamily.leader.robloxId, 24, "ck3-ally-avatar") : ""}
                             <span class="ck3-ally-name" style="color: ${ally.color}">${ally.name}</span>
+                            ${isOwnClan ? `<span class="ck3-dissolve" onclick="event.stopPropagation(); ClanPanel.dissolveAlliance('${clanId}', '${aId}')" title="Dissolve">&times;</span>` : ""}
                         </div>
                     `;
                 }).join("")}
             </div>
         `;
+    },
+
+    renderProposals(clanId, isOwnClan) {
+        const container = document.getElementById("clan-proposals-bar");
+        if (!isOwnClan) {
+            container.innerHTML = "";
+            return;
+        }
+
+        const pending = Diplomacy.getPendingRequests(clanId);
+        const sent = Diplomacy.getSentRequests(clanId);
+
+        if (pending.length === 0 && sent.length === 0) {
+            container.innerHTML = "";
+            return;
+        }
+
+        let html = `<div class="ck3-family-header">Proposals</div>`;
+
+        pending.forEach(r => {
+            const fromClan = GameState.getClan(r.from);
+            const fromPerson = Diplomacy.getPerson(r.fromPerson);
+            const toPerson = Diplomacy.getPerson(r.toPerson);
+            html += `
+                <div class="ck3-proposal-card incoming">
+                    <div class="ck3-proposal-people">
+                        ${fromPerson ? RobloxAvatar.img(fromPerson.robloxId, 28, "ck3-avatar") : ""}
+                        <span class="marriage-heart">&#10084;</span>
+                        ${toPerson ? RobloxAvatar.img(toPerson.robloxId, 28, "ck3-avatar") : ""}
+                    </div>
+                    <div class="ck3-proposal-info">
+                        <span>${fromPerson ? fromPerson.name : "?"} &amp; ${toPerson ? toPerson.name : "?"}</span>
+                        <span class="ck3-proposal-from" style="color: ${fromClan ? fromClan.color : '#888'}">from ${fromClan ? fromClan.name : "?"}</span>
+                    </div>
+                    <div class="ck3-proposal-actions">
+                        <button class="small-btn commit" onclick="ClanPanel.acceptProposal('${r.id}')">&#10003;</button>
+                        <button class="small-btn cancel" onclick="ClanPanel.rejectProposal('${r.id}')">&#10005;</button>
+                    </div>
+                </div>
+            `;
+        });
+
+        sent.forEach(r => {
+            const toClan = GameState.getClan(r.to);
+            const fromPerson = Diplomacy.getPerson(r.fromPerson);
+            const toPerson = Diplomacy.getPerson(r.toPerson);
+            html += `
+                <div class="ck3-proposal-card sent">
+                    <div class="ck3-proposal-people">
+                        ${fromPerson ? RobloxAvatar.img(fromPerson.robloxId, 24, "ck3-avatar") : ""}
+                        <span class="marriage-heart">&#10084;</span>
+                        ${toPerson ? RobloxAvatar.img(toPerson.robloxId, 24, "ck3-avatar") : ""}
+                    </div>
+                    <div class="ck3-proposal-info">
+                        <span class="ck3-proposal-from" style="color: ${toClan ? toClan.color : '#888'}">Sent to ${toClan ? toClan.name : "?"}</span>
+                    </div>
+                    <span class="status-pending">Pending</span>
+                </div>
+            `;
+        });
+
+        container.innerHTML = html;
+    },
+
+    acceptProposal(requestId) {
+        const result = Diplomacy.acceptMarriage(requestId);
+        if (result.success) {
+            this.render(this.currentClan);
+            MapRenderer.update();
+        } else {
+            Notifications.show(result.error, "error");
+        }
+    },
+
+    rejectProposal(requestId) {
+        const result = Diplomacy.rejectMarriage(requestId);
+        if (result.success) {
+            this.render(this.currentClan);
+        } else {
+            Notifications.show(result.error, "error");
+        }
+    },
+
+    dissolveAlliance(clan1, clan2) {
+        if (!confirm("Dissolve this marriage alliance?")) return;
+        const result = Diplomacy.dissolveMarriage(clan1, clan2);
+        if (result.success) {
+            this.render(this.currentClan);
+            MapRenderer.update();
+        }
     }
 };
