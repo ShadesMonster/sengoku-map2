@@ -45,6 +45,9 @@ const App = {
         // Populate clan selector
         this.updateClanSelector();
 
+        // Initialize auth (Discord login)
+        Auth.init();
+
         // Clan selector change
         document.getElementById("clan-selector").addEventListener("change", (e) => {
             GameState.selectedClan = e.target.value || null;
