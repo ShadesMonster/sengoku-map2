@@ -171,11 +171,20 @@ const GameState = {
         );
     },
 
-    // Get all allies of a clan
+    // Get all unique allied clan IDs
     getAllies(clanId) {
-        return this.alliances
+        const allies = this.alliances
             .filter(a => a.clan1 === clanId || a.clan2 === clanId)
             .map(a => a.clan1 === clanId ? a.clan2 : a.clan1);
+        return [...new Set(allies)];
+    },
+
+    // Get all alliances between two clans (may be multiple)
+    getAlliancesBetween(clan1, clan2) {
+        return this.alliances.filter(a =>
+            (a.clan1 === clan1 && a.clan2 === clan2) ||
+            (a.clan1 === clan2 && a.clan2 === clan1)
+        );
     },
 
     // Reset game

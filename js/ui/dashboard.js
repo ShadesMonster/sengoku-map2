@@ -372,10 +372,9 @@ const Dashboard = {
             return;
         }
 
-        // Get clans that aren't already allied and have unmarried members
-        const allies = GameState.getAllies(clanId);
+        // Get clans that have unmarried members (allow multiple marriages into same clan)
         const availableClans = Object.values(GameState.clans)
-            .filter(c => c.id !== clanId && !allies.includes(c.id))
+            .filter(c => c.id !== clanId)
             .filter(c => Diplomacy.getUnmarriedMembers(c.id).length > 0);
 
         if (availableClans.length === 0) {

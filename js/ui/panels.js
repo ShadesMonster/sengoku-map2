@@ -596,12 +596,12 @@ const ClanPanel = {
             }
         }
 
-        // Marriage action: show if this is another clan's unmarried member and player has unmarried members
+        // Marriage action: show if this is another clan's unmarried member and player has opposite-sex unmarried members
         let actionHtml = "";
         if (!married && isOtherClan) {
-            const myUnmarried = Diplomacy.getUnmarriedMembers(myClan);
-            const alreadyAllied = GameState.areAllied(myClan, person.clanId);
-            if (myUnmarried.length > 0 && !alreadyAllied) {
+            const myUnmarried = Diplomacy.getUnmarriedMembers(myClan)
+                .filter(m => m.gender !== person.gender); // opposite sex only
+            if (myUnmarried.length > 0) {
                 actionHtml = `
                     <div class="popup-action">
                         <label>Propose marriage with:</label>
@@ -615,8 +615,8 @@ const ClanPanel = {
                         <button class="small-btn commit" onclick="ClanPanel.proposeFromPopup('${personId}')">Propose Marriage</button>
                     </div>
                 `;
-            } else if (alreadyAllied) {
-                actionHtml = `<div class="popup-status">Already allied with this clan</div>`;
+            } else if (Diplomacy.getUnmarriedMembers(myClan).length === 0) {
+                actionHtml = `<div class="popup-status">No unmarried family members available</div>`;
             }
         }
 
@@ -664,7 +664,12 @@ const ClanPanel = {
         const container = document.getElementById("clan-alliances-bar");
         const isOwnClan = clanId === GameState.selectedClan;
 
-        if (allies.length === 0) {
+        // Gather all individual marriages for this clan
+        const allMarriages = GameState.alliances.filter(a =>
+            a.clan1 === clanId || a.clan2 === clanId
+        );
+
+        if (allMarriages.length === 0) {
             container.innerHTML = `
                 <div class="ck3-family-header">Alliances</div>
                 <div class="empty-state" style="padding: 6px; font-size: 10px;">No marriage alliances</div>
@@ -673,21 +678,21 @@ const ClanPanel = {
         }
 
         container.innerHTML = `
-            <div class="ck3-family-header">Alliances (${allies.length})</div>
+            <div class="ck3-family-header">Marriages (${allMarriages.length})</div>
             <div class="ck3-alliance-row">
-                ${allies.map(aId => {
-                    const ally = GameState.getClan(aId);
-                    const allyFamily = CLAN_FAMILIES[aId];
-                    const marriage = Diplomacy.getMarriageInfo(clanId, aId);
-                    let coupleTitle = ally.name;
-                    if (marriage && marriage.person1 && marriage.person2) {
-                        coupleTitle = `${marriage.person1.name} & ${marriage.person2.name}`;
-                    }
+                ${allMarriages.map(a => {
+                    const p1 = Diplomacy.getPerson(a.person1);
+                    const p2 = Diplomacy.getPerson(a.person2);
+                    const allyClanId = a.clan1 === clanId ? a.clan2 : a.clan1;
+                    const ally = GameState.getClan(allyClanId);
+                    const title = `${p1 ? p1.name : "?"} & ${p2 ? p2.name : "?"} (${ally ? ally.name : "?"})`;
                     return `
-                        <div class="ck3-alliance-chip" onclick="ClanPanel.show('${aId}')" title="${coupleTitle}">
-                            ${allyFamily ? RobloxAvatar.img(allyFamily.leader.robloxId, 24, "ck3-ally-avatar") : ""}
-                            <span class="ck3-ally-name" style="color: ${ally.color}">${ally.name}</span>
-                            ${isOwnClan ? `<span class="ck3-dissolve" onclick="event.stopPropagation(); ClanPanel.dissolveAlliance('${clanId}', '${aId}')" title="Dissolve">&times;</span>` : ""}
+                        <div class="ck3-alliance-chip" onclick="ClanPanel.show('${allyClanId}')" title="${title}">
+                            ${p1 ? RobloxAvatar.img(p1.robloxId, 24, "ck3-ally-avatar") : ""}
+                            <span class="marriage-heart" style="font-size:10px">&#10084;</span>
+                            ${p2 ? RobloxAvatar.img(p2.robloxId, 24, "ck3-ally-avatar") : ""}
+                            <span class="ck3-ally-name" style="color: ${ally ? ally.color : '#888'}">${ally ? ally.name : "?"}</span>
+                            ${isOwnClan ? `<span class="ck3-dissolve" onclick="event.stopPropagation(); ClanPanel.dissolveMarriage('${a.person1}', '${a.person2}')" title="Dissolve">&times;</span>` : ""}
                         </div>
                     `;
                 }).join("")}
@@ -776,9 +781,9 @@ const ClanPanel = {
         }
     },
 
-    dissolveAlliance(clan1, clan2) {
-        if (!confirm("Dissolve this marriage alliance?")) return;
-        const result = Diplomacy.dissolveMarriage(clan1, clan2);
+    dissolveMarriage(person1Id, person2Id) {
+        if (!confirm("Dissolve this marriage?")) return;
+        const result = Diplomacy.dissolveMarriageByPersons(person1Id, person2Id);
         if (result.success) {
             this.render(this.currentClan);
             MapRenderer.update();

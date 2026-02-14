@@ -30,33 +30,34 @@ const Diplomacy = {
         return members.filter(m => !this.isMarried(m.id));
     },
 
-    // Propose marriage between two clan children
+    // Propose marriage between two clan members
     proposeMarriage(fromClanId, fromPersonId, toClanId, toPersonId) {
         if (fromClanId === toClanId) {
             return { success: false, error: "Cannot marry within same clan" };
-        }
-
-        if (GameState.areAllied(fromClanId, toClanId)) {
-            return { success: false, error: "Already allied through marriage" };
-        }
-
-        if (this.isMarried(fromPersonId) || this.isMarried(toPersonId)) {
-            return { success: false, error: "One or both persons are already married" };
-        }
-
-        // Check no pending proposal between these clans
-        const existing = GameState.allianceRequests.find(r =>
-            (r.from === fromClanId && r.to === toClanId) ||
-            (r.from === toClanId && r.to === fromClanId)
-        );
-        if (existing) {
-            return { success: false, error: "Marriage proposal already pending between these clans" };
         }
 
         const fromPerson = this.getPerson(fromPersonId);
         const toPerson = this.getPerson(toPersonId);
         if (!fromPerson || !toPerson) {
             return { success: false, error: "Invalid person" };
+        }
+
+        // Must be opposite sex
+        if (fromPerson.gender === toPerson.gender) {
+            return { success: false, error: "Can only marry opposite sex" };
+        }
+
+        if (this.isMarried(fromPersonId) || this.isMarried(toPersonId)) {
+            return { success: false, error: "One or both persons are already married" };
+        }
+
+        // Check no pending proposal involving these specific people
+        const existing = GameState.allianceRequests.find(r =>
+            r.fromPerson === fromPersonId || r.toPerson === fromPersonId ||
+            r.fromPerson === toPersonId || r.toPerson === toPersonId
+        );
+        if (existing) {
+            return { success: false, error: "One or both persons already have a pending proposal" };
         }
 
         GameState.allianceRequests.push({
@@ -138,44 +139,49 @@ const Diplomacy = {
         return { success: true };
     },
 
-    // Dissolve marriage - breaks alliance
-    dissolveMarriage(clan1Id, clan2Id) {
+    // Dissolve a specific marriage by person IDs
+    dissolveMarriageByPersons(person1Id, person2Id) {
         const idx = GameState.alliances.findIndex(a =>
-            (a.clan1 === clan1Id && a.clan2 === clan2Id) ||
-            (a.clan1 === clan2Id && a.clan2 === clan1Id)
+            (a.person1 === person1Id && a.person2 === person2Id) ||
+            (a.person1 === person2Id && a.person2 === person1Id)
         );
-        if (idx === -1) return { success: false, error: "Alliance not found" };
+        if (idx === -1) return { success: false, error: "Marriage not found" };
 
         const alliance = GameState.alliances[idx];
         const p1 = this.getPerson(alliance.person1);
         const p2 = this.getPerson(alliance.person2);
+        const clan1 = GameState.getClan(alliance.clan1);
+        const clan2 = GameState.getClan(alliance.clan2);
 
         GameState.alliances.splice(idx, 1);
 
-        const clan1 = GameState.getClan(clan1Id);
-        const clan2 = GameState.getClan(clan2Id);
         GameState.addHistory("diplomacy",
-            `Marriage dissolved: ${p1 ? p1.name : "?"} & ${p2 ? p2.name : "?"} — Alliance broken between ${clan1.name} & ${clan2.name}`);
+            `Marriage dissolved: ${p1 ? p1.name : "?"} & ${p2 ? p2.name : "?"} — ${clan1.name} & ${clan2.name}`);
         GameState.save();
 
-        Notifications.show(`Marriage dissolved: ${clan1.name} & ${clan2.name}`, "warning");
+        Notifications.show(`Marriage dissolved: ${p1 ? p1.name : "?"} & ${p2 ? p2.name : "?"}`, "warning");
 
         return { success: true };
     },
 
-    // Get marriage details for an alliance
-    getMarriageInfo(clan1Id, clan2Id) {
-        const alliance = GameState.alliances.find(a =>
-            (a.clan1 === clan1Id && a.clan2 === clan2Id) ||
-            (a.clan1 === clan2Id && a.clan2 === clan1Id)
-        );
-        if (!alliance) return null;
+    // Get all marriages between two clans
+    getMarriagesBetween(clan1Id, clan2Id) {
+        return GameState.alliances
+            .filter(a =>
+                (a.clan1 === clan1Id && a.clan2 === clan2Id) ||
+                (a.clan1 === clan2Id && a.clan2 === clan1Id)
+            )
+            .map(a => ({
+                person1: this.getPerson(a.person1),
+                person2: this.getPerson(a.person2),
+                formedAt: a.formedAt
+            }));
+    },
 
-        return {
-            person1: this.getPerson(alliance.person1),
-            person2: this.getPerson(alliance.person2),
-            formedAt: alliance.formedAt
-        };
+    // Get first marriage info between two clans (backwards compat)
+    getMarriageInfo(clan1Id, clan2Id) {
+        const marriages = this.getMarriagesBetween(clan1Id, clan2Id);
+        return marriages.length > 0 ? marriages[0] : null;
     },
 
     // Gift province to allied clan
