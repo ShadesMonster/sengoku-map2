@@ -1,8 +1,11 @@
 // Diplomacy System - Marriage-based alliances, gift land
 const Diplomacy = {
-    // Get a person's info from CLAN_FAMILIES
+    // Get a person's info from CLAN_FAMILIES (leaders + children)
     getPerson(personId) {
         for (const [clanId, family] of Object.entries(CLAN_FAMILIES)) {
+            if (family.leader.id === personId) {
+                return { ...family.leader, clanId };
+            }
             for (const child of family.children) {
                 if (child.id === personId) {
                     return { ...child, clanId };
@@ -19,11 +22,12 @@ const Diplomacy = {
         );
     },
 
-    // Get unmarried children of a clan
-    getUnmarriedChildren(clanId) {
+    // Get unmarried members of a clan (leader + children)
+    getUnmarriedMembers(clanId) {
         const family = CLAN_FAMILIES[clanId];
         if (!family) return [];
-        return family.children.filter(c => !this.isMarried(c.id));
+        const members = [family.leader, ...family.children];
+        return members.filter(m => !this.isMarried(m.id));
     },
 
     // Propose marriage between two clan children

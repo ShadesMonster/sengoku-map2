@@ -59,9 +59,6 @@ const App = {
         // Start countdown timer
         this.startCountdown();
 
-        // Render legend
-        this.renderLegend();
-
         // Initial map render
         MapRenderer.update();
 
@@ -76,9 +73,6 @@ const App = {
 
         // Week display
         document.getElementById("week-display").textContent = `Week ${GameState.week}`;
-
-        // Update legend
-        this.renderLegend();
     },
 
     updateClanSelector() {
@@ -120,24 +114,7 @@ const App = {
         this.countdownInterval = setInterval(update, 1000);
     },
 
-    renderLegend() {
-        const list = document.getElementById("legend-list");
-        list.innerHTML = Object.values(GameState.clans).map(c => {
-            const provinces = GameState.getOwnedProvinces(c.id).length;
-            const troops = GameState.getTotalTroops(c.id) + ArmySystem.getTroopsInBattle(c.id);
-            const isSelected = c.id === GameState.selectedClan;
-            return `
-                <div class="legend-entry ${isSelected ? 'selected' : ''}">
-                    <span class="legend-color" style="background:${c.color}" onclick="document.getElementById('clan-selector').value='${c.id}';
-                              document.getElementById('clan-selector').dispatchEvent(new Event('change'))"></span>
-                    <span class="legend-name" onclick="document.getElementById('clan-selector').value='${c.id}';
-                              document.getElementById('clan-selector').dispatchEvent(new Event('change'))">${c.japaneseName} ${c.name}</span>
-                    <span class="legend-stats">${provinces}P ${troops}A</span>
-                    <span class="legend-view" onclick="event.stopPropagation(); Dashboard.viewClan('${c.id}')" title="View clan">&#128065;</span>
-                </div>
-            `;
-        }).join("");
-    }
+}
 };
 
 // Boot up when DOM is ready

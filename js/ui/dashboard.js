@@ -162,15 +162,39 @@ const Dashboard = {
 
         const clan = GameState.getClan(clanId);
 
+        const leaderMarried = Diplomacy.isMarried(family.leader.id);
+        let leaderMarriageInfo = "";
+        if (leaderMarried) {
+            const alliance = GameState.alliances.find(a =>
+                a.person1 === family.leader.id || a.person2 === family.leader.id
+            );
+            if (alliance) {
+                const spouseId = alliance.person1 === family.leader.id ? alliance.person2 : alliance.person1;
+                const spouse = Diplomacy.getPerson(spouseId);
+                if (spouse) {
+                    const spouseClan = GameState.getClan(spouse.clanId);
+                    leaderMarriageInfo = `
+                        <div class="marriage-link">
+                            <span class="marriage-heart">&#10084;</span>
+                            ${RobloxAvatar.img(spouse.robloxId, 28, "spouse-avatar")}
+                            <span class="spouse-name" style="color: ${spouseClan ? spouseClan.color : "#888"}">${spouse.name}</span>
+                            <span class="spouse-clan">(${spouseClan ? spouseClan.name : "?"})</span>
+                        </div>
+                    `;
+                }
+            }
+        }
+
         container.innerHTML = `
             <h3>Family</h3>
             <div class="family-tree">
-                <div class="family-leader">
+                <div class="family-leader ${leaderMarried ? "married" : ""}">
                     ${RobloxAvatar.img(family.leader.robloxId, 48, "family-avatar")}
                     <div class="family-person-info">
                         <span class="family-person-name">${family.leader.name}</span>
-                        <span class="family-person-role">Clan Leader</span>
+                        <span class="family-person-role">Daimyo${leaderMarried ? " — Married" : ""}</span>
                     </div>
+                    ${leaderMarriageInfo}
                 </div>
                 <div class="family-children">
                     ${family.children.map(child => {
@@ -341,18 +365,18 @@ const Dashboard = {
         if (!clanId) return;
 
         const modal = document.getElementById("alliance-modal");
-        const myChildren = Diplomacy.getUnmarriedChildren(clanId);
+        const myMembers = Diplomacy.getUnmarriedMembers(clanId);
 
-        if (myChildren.length === 0) {
-            Notifications.show("No unmarried children available for marriage", "error");
+        if (myMembers.length === 0) {
+            Notifications.show("No unmarried family members available for marriage", "error");
             return;
         }
 
-        // Get clans that aren't already allied and have unmarried children
+        // Get clans that aren't already allied and have unmarried members
         const allies = GameState.getAllies(clanId);
         const availableClans = Object.values(GameState.clans)
             .filter(c => c.id !== clanId && !allies.includes(c.id))
-            .filter(c => Diplomacy.getUnmarriedChildren(c.id).length > 0);
+            .filter(c => Diplomacy.getUnmarriedMembers(c.id).length > 0);
 
         if (availableClans.length === 0) {
             Notifications.show("No clans available for marriage alliance", "error");
@@ -365,11 +389,12 @@ const Dashboard = {
             <h3>Propose Marriage</h3>
             <div class="marriage-form">
                 <div class="form-group">
-                    <label>Your child:</label>
+                    <label>Your family member:</label>
                     <select id="marriage-my-child">
-                        ${myChildren.map(c => {
-                            const icon = c.gender === "male" ? "♂" : "♀";
-                            return `<option value="${c.id}">${icon} ${c.name}</option>`;
+                        ${myMembers.map(m => {
+                            const icon = m.gender === "male" ? "♂" : "♀";
+                            const tag = m.title ? " (Daimyo)" : "";
+                            return `<option value="${m.id}">${icon} ${m.name}${tag}</option>`;
                         }).join("")}
                     </select>
                     <div id="marriage-my-preview" class="person-preview"></div>
@@ -383,7 +408,7 @@ const Dashboard = {
                     </select>
                 </div>
                 <div class="form-group">
-                    <label>Their child:</label>
+                    <label>Their family member:</label>
                     <select id="marriage-their-child"></select>
                     <div id="marriage-their-preview" class="person-preview"></div>
                 </div>
@@ -394,13 +419,14 @@ const Dashboard = {
             </div>
         `;
 
-        const updateTheirChildren = () => {
+        const updateTheirMembers = () => {
             const targetClanId = document.getElementById("marriage-target-clan").value;
-            const theirChildren = Diplomacy.getUnmarriedChildren(targetClanId);
+            const theirMembers = Diplomacy.getUnmarriedMembers(targetClanId);
             document.getElementById("marriage-their-child").innerHTML =
-                theirChildren.map(c => {
-                    const icon = c.gender === "male" ? "♂" : "♀";
-                    return `<option value="${c.id}">${icon} ${c.name}</option>`;
+                theirMembers.map(m => {
+                    const icon = m.gender === "male" ? "♂" : "♀";
+                    const tag = m.title ? " (Daimyo)" : "";
+                    return `<option value="${m.id}">${icon} ${m.name}${tag}</option>`;
                 }).join("");
             updateTheirPreview();
         };
@@ -429,11 +455,11 @@ const Dashboard = {
 
         // Set up event handlers after modal is visible
         setTimeout(() => {
-            document.getElementById("marriage-target-clan").addEventListener("change", updateTheirChildren);
+            document.getElementById("marriage-target-clan").addEventListener("change", updateTheirMembers);
             document.getElementById("marriage-my-child").addEventListener("change", updateMyPreview);
             document.getElementById("marriage-their-child").addEventListener("change", updateTheirPreview);
 
-            updateTheirChildren();
+            updateTheirMembers();
             updateMyPreview();
 
             document.getElementById("marriage-send").onclick = () => {
