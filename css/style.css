@@ -152,6 +152,17 @@ body {
     background: var(--border);
 }
 
+.discord-btn {
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.discord-btn:hover svg path {
+    fill: #5865F2;
+}
+
 /* === Main Content === */
 #main-content {
     display: flex;

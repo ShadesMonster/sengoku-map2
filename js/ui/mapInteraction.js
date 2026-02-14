@@ -171,6 +171,7 @@ const MapInteraction = {
 
         this.selectedProvince = provinceId;
         MapRenderer.highlightProvince(provinceId, true);
+        closeAllOverlays("side-panel");
         Panels.showProvincePanel(provinceId);
     },
 

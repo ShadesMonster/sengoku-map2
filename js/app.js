@@ -7,6 +7,14 @@ function closeAllOverlays(exceptId) {
             document.getElementById(id).classList.add("hidden");
         }
     });
+    // Also close the province side panel unless it's the one we're keeping
+    if (exceptId !== "side-panel") {
+        document.getElementById("side-panel").classList.add("hidden");
+        if (MapInteraction.selectedProvince) {
+            MapRenderer.highlightProvince(MapInteraction.selectedProvince, false);
+            MapInteraction.selectedProvince = null;
+        }
+    }
 }
 
 const App = {
