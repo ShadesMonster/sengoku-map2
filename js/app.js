@@ -114,9 +114,7 @@ const App = {
 
         update();
         this.countdownInterval = setInterval(update, 1000);
-    },
-
-}
+    }
 };
 
 // Boot up when DOM is ready
