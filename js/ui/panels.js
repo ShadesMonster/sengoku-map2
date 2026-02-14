@@ -400,7 +400,7 @@ const ClanPanel = {
 
     render(clanId) {
         const clan = GameState.getClan(clanId);
-        const family = CLAN_FAMILIES[clanId];
+        const family = GameState.getFamily(clanId);
         if (!clan || !family) return;
 
         const ownedProvinces = GameState.getOwnedProvinces(clanId);

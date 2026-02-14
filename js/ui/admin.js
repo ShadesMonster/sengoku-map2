@@ -39,6 +39,11 @@ const Admin = {
         document.getElementById("admin-create-clan").addEventListener("click", () => {
             this.createClan();
         });
+
+        // Family management
+        document.getElementById("admin-add-child").addEventListener("click", () => {
+            this.addChild();
+        });
     },
 
     toggle() {
@@ -57,6 +62,7 @@ const Admin = {
         this.populateProvinceSelect();
         this.populateClanSelects();
         this.renderClanList();
+        this.renderFamilyList();
         this.renderBattleList();
     },
 
@@ -75,6 +81,8 @@ const Admin = {
 
         document.getElementById("admin-province-owner-select").innerHTML = options;
         document.getElementById("admin-army-clan-select").innerHTML =
+            clans.map(c => `<option value="${c.id}">${c.name}</option>`).join("");
+        document.getElementById("admin-family-clan-select").innerHTML =
             clans.map(c => `<option value="${c.id}">${c.name}</option>`).join("");
     },
 
@@ -385,5 +393,123 @@ const Admin = {
         } else {
             Notifications.show(result.error, "error");
         }
+    },
+
+    addChild() {
+        const clanId = document.getElementById("admin-family-clan-select").value;
+        const name = document.getElementById("admin-child-name").value.trim();
+        const gender = document.getElementById("admin-child-gender").value;
+        const robloxIdInput = document.getElementById("admin-child-robloxid").value.trim();
+
+        if (!clanId) {
+            Notifications.show("Select a clan", "error");
+            return;
+        }
+        if (!name) {
+            Notifications.show("Enter a child name", "error");
+            return;
+        }
+
+        const robloxId = robloxIdInput ? parseInt(robloxIdInput) : DEFAULT_ROBLOX_ID;
+        const childId = `${clanId}_child_${Date.now()}`;
+
+        if (!GameState.dynamicChildren[clanId]) {
+            GameState.dynamicChildren[clanId] = [];
+        }
+
+        GameState.dynamicChildren[clanId].push({
+            id: childId,
+            name: name,
+            gender: gender,
+            robloxId: robloxId
+        });
+
+        GameState.save();
+
+        const clanName = GameState.getClan(clanId).name;
+        GameState.addHistory("system", `Admin added child "${name}" to ${clanName}`);
+        Notifications.show(`Added ${name} to ${clanName}`, "success");
+
+        // Clear inputs
+        document.getElementById("admin-child-name").value = "";
+        document.getElementById("admin-child-robloxid").value = "";
+
+        this.renderFamilyList();
+
+        // Refresh clan panel if showing this clan
+        if (ClanPanel.currentClan === clanId) {
+            ClanPanel.render(clanId);
+        }
+    },
+
+    removeChild(clanId, childId) {
+        const children = GameState.dynamicChildren[clanId];
+        if (!children) return;
+
+        const idx = children.findIndex(c => c.id === childId);
+        if (idx === -1) return;
+
+        const child = children[idx];
+
+        // Check if married - dissolve marriage first
+        if (Diplomacy.isMarried(childId)) {
+            const alliance = GameState.alliances.find(a =>
+                a.person1 === childId || a.person2 === childId
+            );
+            if (alliance) {
+                const spouseId = alliance.person1 === childId ? alliance.person2 : alliance.person1;
+                Diplomacy.dissolveMarriageByPersons(childId, spouseId);
+            }
+        }
+
+        // Remove pending proposals involving this person
+        GameState.allianceRequests = GameState.allianceRequests.filter(r =>
+            r.fromPerson !== childId && r.toPerson !== childId
+        );
+
+        children.splice(idx, 1);
+        GameState.save();
+
+        const clanName = GameState.getClan(clanId).name;
+        GameState.addHistory("system", `Admin removed child "${child.name}" from ${clanName}`);
+        Notifications.show(`Removed ${child.name} from ${clanName}`, "warning");
+
+        this.renderFamilyList();
+
+        if (ClanPanel.currentClan === clanId) {
+            ClanPanel.render(clanId);
+        }
+    },
+
+    renderFamilyList() {
+        const list = document.getElementById("admin-family-list");
+        const allDynamic = Object.entries(GameState.dynamicChildren);
+
+        if (allDynamic.length === 0 || allDynamic.every(([, kids]) => kids.length === 0)) {
+            list.innerHTML = '<div class="empty-state">No admin-added children</div>';
+            return;
+        }
+
+        list.innerHTML = allDynamic
+            .filter(([, kids]) => kids.length > 0)
+            .map(([clanId, kids]) => {
+                const clan = GameState.getClan(clanId);
+                if (!clan) return "";
+                return `
+                    <div class="admin-family-clan" style="border-left: 3px solid ${clan.color}; margin-bottom: 8px; padding-left: 8px;">
+                        <strong style="color: ${clan.color}">${clan.name}</strong>
+                        ${kids.map(child => {
+                            const genderIcon = child.gender === "male" ? "♂" : "♀";
+                            const married = Diplomacy.isMarried(child.id);
+                            return `
+                                <div class="admin-child-entry">
+                                    <span>${genderIcon} ${child.name}${married ? " ❤" : ""}</span>
+                                    <button class="small-btn danger" onclick="Admin.removeChild('${clanId}', '${child.id}')">Remove</button>
+                                </div>
+                            `;
+                        }).join("")}
+                    </div>
+                `;
+            }).join("");
     }
 };

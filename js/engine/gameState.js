@@ -12,6 +12,7 @@ const GameState = {
     retreatingArmies: [], // armies retreating from lost battles
     alliances: [],      // { clan1, clan2 }
     allianceRequests: [],// { from, to, timestamp }
+    dynamicChildren: {},// clanId -> [{ id, name, gender, robloxId }] admin-added children
     history: [],        // event log
     selectedClan: null, // currently selected clan for play
 
@@ -64,6 +65,7 @@ const GameState = {
         this.retreatingArmies = [];
         this.alliances = [];
         this.allianceRequests = [];
+        this.dynamicChildren = {};
         this.history = [];
 
         // Initialize clans
@@ -114,6 +116,7 @@ const GameState = {
             retreatingArmies: this.retreatingArmies,
             alliances: this.alliances,
             allianceRequests: this.allianceRequests,
+            dynamicChildren: this.dynamicChildren,
             history: this.history,
             selectedClan: this.selectedClan
         };
@@ -185,6 +188,17 @@ const GameState = {
             (a.clan1 === clan1 && a.clan2 === clan2) ||
             (a.clan1 === clan2 && a.clan2 === clan1)
         );
+    },
+
+    // Get full family for a clan (static CLAN_FAMILIES + dynamic children)
+    getFamily(clanId) {
+        const staticFamily = CLAN_FAMILIES[clanId];
+        if (!staticFamily) return null;
+        const dynamic = this.dynamicChildren[clanId] || [];
+        return {
+            leader: staticFamily.leader,
+            children: [...staticFamily.children, ...dynamic]
+        };
     },
 
     // Reset game

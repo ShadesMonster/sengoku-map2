@@ -53,7 +53,7 @@ const Dashboard = {
         }
 
         const clan = GameState.getClan(displayClanId);
-        const family = CLAN_FAMILIES[displayClanId];
+        const family = GameState.getFamily(displayClanId);
         const ownedProvinces = GameState.getOwnedProvinces(displayClanId);
         const totalTroops = GameState.getTotalTroops(displayClanId) + ArmySystem.getTroopsInBattle(displayClanId);
         const allies = GameState.getAllies(displayClanId);
@@ -153,7 +153,7 @@ const Dashboard = {
     },
 
     renderFamilyTree(clanId) {
-        const family = CLAN_FAMILIES[clanId];
+        const family = GameState.getFamily(clanId);
         const container = document.getElementById("dash-family");
         if (!family) {
             container.innerHTML = '<div class="empty-state">No family data</div>';
@@ -255,7 +255,7 @@ const Dashboard = {
             allies.map(aId => {
                 const ally = GameState.getClan(aId);
                 const marriage = Diplomacy.getMarriageInfo(clanId, aId);
-                const allyFamily = CLAN_FAMILIES[aId];
+                const allyFamily = GameState.getFamily(aId);
 
                 let marriageDetail = "";
                 if (marriage && marriage.person1 && marriage.person2) {

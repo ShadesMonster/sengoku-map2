@@ -132,6 +132,47 @@
     width: 65px;
 }
 
+/* Family management */
+#admin-family-controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    align-items: center;
+}
+
+#admin-family select,
+#admin-family input {
+    padding: 5px 8px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 11px;
+    margin: 2px;
+}
+
+#admin-family-clan-select { min-width: 120px; }
+#admin-child-name { flex: 1; min-width: 100px; }
+#admin-child-robloxid { width: 110px; }
+
+#admin-family-list {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid var(--border);
+}
+
+.admin-child-entry {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 4px 8px;
+    font-size: 11px;
+    background: var(--bg-secondary);
+    border-radius: 3px;
+    margin: 3px 0;
+}
+
 /* Battle cards */
 .battle-card {
     padding: 12px;
