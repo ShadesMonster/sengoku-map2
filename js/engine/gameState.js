@@ -56,7 +56,7 @@ const GameState = {
     initFresh() {
         this.week = 1;
         this.phase = "planning";
-        this.clans = {};
+        this.clans = {};  // Populated by API.loadClansFromDB()
         this.provinces = {};
         this.orders = [];
         this.battles = [];
@@ -68,33 +68,12 @@ const GameState = {
         this.dynamicChildren = {};
         this.history = [];
 
-        // Initialize clans
-        DEFAULT_CLANS.forEach(c => {
-            this.clans[c.id] = {
-                id: c.id,
-                name: c.name,
-                japaneseName: c.japaneseName,
-                color: c.color,
-                rallyCap: c.rallyCap,
-                homeProvince: c.homeProvince,
-                totalTroops: STARTING_TROOPS
-            };
-        });
-
-        // Initialize provinces
+        // Initialize provinces (structure only - ownership set by admin)
         PROVINCES.forEach(p => {
             this.provinces[p.id] = {
                 owner: null,
                 armies: {}
             };
-        });
-
-        // Place starting armies at each clan's home province
-        DEFAULT_CLANS.forEach(c => {
-            if (this.provinces[c.homeProvince]) {
-                this.provinces[c.homeProvince].owner = c.id;
-                this.provinces[c.homeProvince].armies[c.id] = STARTING_TROOPS;
-            }
         });
 
         this.addHistory("system", `Game initialized. Week 1, Planning Phase begins.`);

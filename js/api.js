@@ -39,42 +39,52 @@ const API = {
         return this.request("clans");
     },
 
-    // Fetch clans from DB and merge daimyo/description into GameState
+    // Load clans from DB as the primary source of truth
     async loadClansFromDB() {
         if (!this.enabled) return;
         try {
             const data = await this.getClans();
             if (!data || !data.clans) return;
 
-            data.clans.forEach(dbClan => {
-                // Match DB clan to frontend clan by name
-                const clanId = dbClan.name.toLowerCase().trim();
-                const clan = GameState.clans[clanId];
-                if (!clan) return;
+            let colorIndex = 0;
+            GameState.clans = {};
 
-                // Merge DB info into the clan object
-                clan.description = dbClan.description || null;
-                clan.daimyo = dbClan.daimyo || null;
-                clan.dbClanId = dbClan.clanId;
+            data.clans.forEach(dbClan => {
+                const clanId = dbClan.name.toLowerCase().trim();
+                const defaults = CLAN_DEFAULTS[clanId];
+
+                GameState.clans[clanId] = {
+                    id: clanId,
+                    name: dbClan.name,
+                    japaneseName: dbClan.japaneseName || (defaults ? defaults.japaneseName : dbClan.name),
+                    color: dbClan.color || (defaults ? defaults.color : AUTO_COLORS[colorIndex++ % AUTO_COLORS.length]),
+                    rallyCap: dbClan.rallyCap || 10000,
+                    castleProvince: dbClan.castleProvince || null,
+                    description: dbClan.description || null,
+                    daimyo: dbClan.daimyo || null,
+                    dbClanId: dbClan.clanId,
+                };
 
                 // Update CLAN_FAMILIES leader with real daimyo info
                 if (dbClan.daimyo && CLAN_FAMILIES[clanId]) {
                     const leader = CLAN_FAMILIES[clanId].leader;
-                    if (dbClan.daimyo.robloxId) {
-                        leader.robloxId = dbClan.daimyo.robloxId;
-                    }
-                    if (dbClan.daimyo.rpName) {
-                        leader.name = dbClan.daimyo.rpName;
-                    }
+                    if (dbClan.daimyo.robloxId) leader.robloxId = dbClan.daimyo.robloxId;
+                    if (dbClan.daimyo.rpName) leader.name = dbClan.daimyo.rpName;
                 }
             });
 
-            // Re-fetch avatars now that roblox IDs may have changed
+            GameState.save();
             RobloxAvatar.fetchAll();
-            console.log("[API] Clan data merged from database");
+            MapRenderer.update();
+            console.log("[API] Clans loaded from database:", Object.keys(GameState.clans).length);
         } catch (err) {
             console.warn("[API] Failed to load clans from DB:", err);
         }
+    },
+
+    // Update clan map settings (castle, color, etc.) via admin
+    async updateClanSettings(dbClanId, settings) {
+        return this.request(`clans/${dbClanId}/settings`, "PUT", settings);
     },
 
     // ---- Families ----

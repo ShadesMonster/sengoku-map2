@@ -34,7 +34,7 @@ const Panels = {
         // Battleground type - Castle Siege at clan capitals, otherwise terrain-based
         const terrain = TERRAIN_CONFIG[prov.terrain];
         const ownerClan = state.owner ? GameState.getClan(state.owner) : null;
-        const isCapital = ownerClan && ownerClan.homeProvince === provinceId;
+        const isCapital = ownerClan && ownerClan.castleProvince === provinceId;
         document.getElementById("panel-terrain-value").textContent = isCapital
             ? `${CASTLE_SIEGE.icon} Castle Siege`
             : `${terrain.icon} ${terrain.battleType}`;
@@ -481,7 +481,7 @@ const ClanPanel = {
             }
         }
 
-        const homeProv = PROVINCE_MAP[clan.homeProvince];
+        const homeProv = PROVINCE_MAP[clan.castleProvince];
         document.getElementById("clan-portrait-area").innerHTML = `
             <div class="ck3-leader-portrait" onclick="ClanPanel.showMemberPopup('${leader.id}', this)">
                 ${RobloxAvatar.img(leader.robloxId, 100, "ck3-avatar")}

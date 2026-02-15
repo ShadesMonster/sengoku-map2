@@ -18,7 +18,7 @@ const BattleSystem = {
         } else {
             const owner = province.owner;
             const ownerClan = owner ? GameState.getClan(owner) : null;
-            const isCastleSiege = ownerClan && ownerClan.homeProvince === provinceId;
+            const isCastleSiege = ownerClan && ownerClan.castleProvince === provinceId;
             if (isCastleSiege) {
                 battleType = "Castle Siege";
                 terrain = "castle";

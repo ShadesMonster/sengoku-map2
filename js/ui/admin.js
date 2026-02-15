@@ -35,11 +35,6 @@ const Admin = {
             this.removeArmyFromProvince();
         });
 
-        // Clan management
-        document.getElementById("admin-create-clan").addEventListener("click", () => {
-            this.createClan();
-        });
-
         // Family management
         document.getElementById("admin-add-child").addEventListener("click", () => {
             this.addChild();
@@ -90,25 +85,74 @@ const Admin = {
         const list = document.getElementById("admin-clan-list");
         const clans = Object.values(GameState.clans);
 
+        if (clans.length === 0) {
+            list.innerHTML = '<div class="empty-state">No clans loaded from database</div>';
+            return;
+        }
+
+        const provinceOptions = PROVINCES
+            .sort((a, b) => a.name.localeCompare(b.name))
+            .map(p => `<option value="${p.id}">${p.name}</option>`)
+            .join("");
+
         list.innerHTML = clans.map(c => {
             const provinces = GameState.getOwnedProvinces(c.id).length;
             const troops = GameState.getTotalTroops(c.id) + ArmySystem.getTroopsInBattle(c.id);
+            const castleName = c.castleProvince && PROVINCE_MAP[c.castleProvince]
+                ? PROVINCE_MAP[c.castleProvince].name : "None";
             return `
                 <div class="admin-clan-entry" style="border-left: 3px solid ${c.color}">
                     <div class="clan-info">
-                        <strong>${c.japaneseName} ${c.name}</strong>
+                        <strong style="color: ${c.color}">${c.japaneseName} ${c.name}</strong>
                         <span>${provinces} provinces, ${troops} troops</span>
+                    </div>
+                    <div class="clan-controls">
+                        <label>Castle:</label>
+                        <select class="castle-select" data-clan="${c.id}" data-dbid="${c.dbClanId}">
+                            <option value="">None</option>
+                            ${provinceOptions.replace(
+                                new RegExp(`value="${c.castleProvince}"`),
+                                `value="${c.castleProvince}" selected`
+                            )}
+                        </select>
+                        <button class="small-btn" onclick="Admin.setCastle('${c.id}')">Set</button>
                     </div>
                     <div class="clan-controls">
                         <label>Rally Cap:</label>
                         <input type="number" value="${c.rallyCap}" min="100" max="50000"
                                class="rally-input" data-clan="${c.id}"/>
                         <button class="small-btn" onclick="Admin.updateRallyCap('${c.id}')">Set</button>
-                        <button class="small-btn danger" onclick="Admin.deleteClan('${c.id}')">Delete</button>
                     </div>
                 </div>
             `;
         }).join("");
+    },
+
+    async setCastle(clanId) {
+        const select = document.querySelector(`.castle-select[data-clan="${clanId}"]`);
+        if (!select) return;
+
+        const provinceId = select.value || null;
+        const dbClanId = select.dataset.dbid;
+        const clan = GameState.getClan(clanId);
+
+        // Save to database
+        try {
+            await API.updateClanSettings(dbClanId, { castleProvince: provinceId });
+        } catch (err) {
+            Notifications.show("Failed to save castle: " + err.message, "error");
+            return;
+        }
+
+        // Update local state
+        clan.castleProvince = provinceId;
+        GameState.save();
+        MapRenderer.update();
+
+        const provName = provinceId && PROVINCE_MAP[provinceId]
+            ? PROVINCE_MAP[provinceId].name : "None";
+        Notifications.show(`${clan.name} castle set to ${provName}`, "info");
+        GameState.addHistory("system", `Admin set ${clan.name} castle to ${provName}`);
     },
 
     renderBattleList() {
@@ -238,14 +282,10 @@ const Admin = {
     advanceWeek() {
         GameState.week++;
         GameState.phase = "planning";
-        // Clear pending (non-committed) orders
         GameState.orders = [];
-        // Clear resolved battles and pending attacks
         GameState.battles = GameState.battles.filter(b => b.status !== "resolved");
         GameState.pendingAttacks = [];
-        // Advance retreating armies (move along path, place at destination)
         BattleSystem.advanceRetreats();
-        // Recover casualties (troops become available to levy again)
         ArmySystem.recoverCasualties();
         GameState.addHistory("system", `Week ${GameState.week} begins. Planning Phase.`);
         GameState.save();
@@ -300,42 +340,7 @@ const Admin = {
         Notifications.show(`Removed ${clanName} army from ${provName}`, "info");
     },
 
-    createClan() {
-        const name = document.getElementById("admin-clan-name").value.trim();
-        const color = document.getElementById("admin-clan-color").value;
-        const rallyCap = parseInt(document.getElementById("admin-clan-rallycap").value);
-
-        if (!name) {
-            Notifications.show("Enter a clan name", "error");
-            return;
-        }
-
-        const id = name.toLowerCase().replace(/[^a-z0-9]/g, "_");
-        if (GameState.clans[id]) {
-            Notifications.show("Clan already exists", "error");
-            return;
-        }
-
-        GameState.clans[id] = {
-            id,
-            name,
-            japaneseName: name,
-            color,
-            rallyCap: rallyCap || 1000,
-            homeProvince: null,
-            totalTroops: 0
-        };
-
-        GameState.save();
-        App.updateClanSelector();
-        this.render();
-        Notifications.show(`Clan ${name} created!`, "success");
-        GameState.addHistory("system", `New clan created: ${name}`);
-
-        document.getElementById("admin-clan-name").value = "";
-    },
-
-    updateRallyCap(clanId) {
+    async updateRallyCap(clanId) {
         const input = document.querySelector(`.rally-input[data-clan="${clanId}"]`);
         if (!input) return;
 
@@ -345,38 +350,19 @@ const Admin = {
             return;
         }
 
-        GameState.clans[clanId].rallyCap = newCap;
-        GameState.save();
-        Notifications.show(`Rally cap updated for ${GameState.getClan(clanId).name}`, "info");
-    },
-
-    deleteClan(clanId) {
         const clan = GameState.getClan(clanId);
-        if (!confirm(`Delete ${clan.name}? This will remove all their armies and provinces.`)) return;
 
-        // Remove from all provinces
-        Object.values(GameState.provinces).forEach(prov => {
-            if (prov.owner === clanId) prov.owner = null;
-            delete prov.armies[clanId];
-        });
+        // Save to database
+        try {
+            await API.updateClanSettings(clan.dbClanId, { rallyCap: newCap });
+        } catch (err) {
+            Notifications.show("Failed to save rally cap: " + err.message, "error");
+            return;
+        }
 
-        // Remove alliances
-        GameState.alliances = GameState.alliances.filter(a =>
-            a.clan1 !== clanId && a.clan2 !== clanId);
-        GameState.allianceRequests = GameState.allianceRequests.filter(r =>
-            r.from !== clanId && r.to !== clanId);
-
-        // Remove orders
-        GameState.orders = GameState.orders.filter(o => o.clanId !== clanId);
-
-        delete GameState.clans[clanId];
-        if (GameState.selectedClan === clanId) GameState.selectedClan = null;
-
+        clan.rallyCap = newCap;
         GameState.save();
-        App.updateClanSelector();
-        MapRenderer.update();
-        this.render();
-        Notifications.show(`${clan.name} deleted`, "warning");
+        Notifications.show(`Rally cap updated for ${clan.name}`, "info");
     },
 
     resolveBattle(battleId, winningSide) {
@@ -430,13 +416,11 @@ const Admin = {
         GameState.addHistory("system", `Admin added child "${name}" to ${clanName}`);
         Notifications.show(`Added ${name} to ${clanName}`, "success");
 
-        // Clear inputs
         document.getElementById("admin-child-name").value = "";
         document.getElementById("admin-child-robloxid").value = "";
 
         this.renderFamilyList();
 
-        // Refresh clan panel if showing this clan
         if (ClanPanel.currentClan === clanId) {
             ClanPanel.render(clanId);
         }
@@ -451,7 +435,6 @@ const Admin = {
 
         const child = children[idx];
 
-        // Check if married - dissolve marriage first
         if (Diplomacy.isMarried(childId)) {
             const alliance = GameState.alliances.find(a =>
                 a.person1 === childId || a.person2 === childId
@@ -462,7 +445,6 @@ const Admin = {
             }
         }
 
-        // Remove pending proposals involving this person
         GameState.allianceRequests = GameState.allianceRequests.filter(r =>
             r.fromPerson !== childId && r.toPerson !== childId
         );
