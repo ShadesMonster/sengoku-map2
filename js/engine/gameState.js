@@ -14,6 +14,7 @@ const GameState = {
     allianceRequests: [],// { from, to, timestamp }
     dynamicChildren: {},// clanId -> [{ id, name, gender, robloxId }] admin-added children
     protectedProvinces: {}, // provinceId -> clanId — ownership can't change
+    deceasedMembers: {},// clanId -> [{ id, name, gender, robloxId, parentId, wasLeader }]
     history: [],        // event log
     selectedClan: null, // currently selected clan for play
 
@@ -74,6 +75,7 @@ const GameState = {
         this.allianceRequests = [];
         this.dynamicChildren = {};
         this.protectedProvinces = {};
+        this.deceasedMembers = {};
         this.history = [];
 
         // Initialize provinces (structure only - ownership set by admin)
@@ -105,6 +107,7 @@ const GameState = {
             allianceRequests: this.allianceRequests,
             dynamicChildren: this.dynamicChildren,
             protectedProvinces: this.protectedProvinces,
+            deceasedMembers: this.deceasedMembers,
             history: this.history,
             selectedClan: this.selectedClan
         };
@@ -130,6 +133,7 @@ const GameState = {
             allianceRequests: this.allianceRequests,
             dynamicChildren: this.dynamicChildren,
             protectedProvinces: this.protectedProvinces,
+            deceasedMembers: this.deceasedMembers,
             history: this.history,
         };
     },
@@ -185,6 +189,7 @@ const GameState = {
         this.allianceRequests = serverState.allianceRequests || [];
         this.dynamicChildren = serverState.dynamicChildren || {};
         this.protectedProvinces = serverState.protectedProvinces || {};
+        this.deceasedMembers = serverState.deceasedMembers || {};
         this.history = serverState.history || [];
 
         // Restore per-user values
@@ -207,6 +212,7 @@ const GameState = {
             allianceRequests: this.allianceRequests,
             dynamicChildren: this.dynamicChildren,
             protectedProvinces: this.protectedProvinces,
+            deceasedMembers: this.deceasedMembers,
             history: this.history,
             selectedClan: this.selectedClan,
         };

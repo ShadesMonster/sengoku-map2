@@ -35,6 +35,11 @@ const Admin = {
             this.removeArmyFromProvince();
         });
 
+        // Reset game
+        document.getElementById("admin-reset-game").addEventListener("click", () => {
+            this.resetGame();
+        });
+
         // Family management
         document.getElementById("admin-add-child").addEventListener("click", () => {
             this.addChild();
@@ -77,8 +82,33 @@ const Admin = {
         document.getElementById("admin-province-owner-select").innerHTML = options;
         document.getElementById("admin-army-clan-select").innerHTML =
             clans.map(c => `<option value="${c.id}">${c.name}</option>`).join("");
-        document.getElementById("admin-family-clan-select").innerHTML =
+        const familySelect = document.getElementById("admin-family-clan-select");
+        familySelect.innerHTML =
             clans.map(c => `<option value="${c.id}">${c.name}</option>`).join("");
+        familySelect.onchange = () => this.populateParentSelect(familySelect.value);
+        this.populateParentSelect(familySelect.value);
+    },
+
+    populateParentSelect(clanId) {
+        const select = document.getElementById("admin-child-parent");
+        if (!select) return;
+
+        const family = CLAN_FAMILIES[clanId];
+        if (!family) {
+            select.innerHTML = '<option value="">Parent: Daimyo (default)</option>';
+            return;
+        }
+
+        const leader = family.leader;
+        let options = `<option value="">Parent: ${leader.name} (Daimyo)</option>`;
+
+        // Add all living children as potential parents
+        const children = family.children || [];
+        children.forEach(c => {
+            options += `<option value="${c.dbId || ''}" data-id="${c.id}">${c.name}</option>`;
+        });
+
+        select.innerHTML = options;
     },
 
     renderClanList() {
@@ -387,6 +417,60 @@ const Admin = {
         Notifications.show(`Advanced to Week ${GameState.week}`, "success");
     },
 
+    resetGame() {
+        if (!confirm("RESET GAME?\n\nThis will:\n- Go back to Week 1\n- Clear all history\n- Clear all orders, battles, casualties\n- Clear all alliances\n- Respawn all clans at their castles\n\nAre you sure?")) return;
+
+        // Reset week and phase
+        GameState.week = 1;
+        GameState.phase = "planning";
+
+        // Clear everything
+        GameState.history = [];
+        GameState.orders = [];
+        GameState.battles = [];
+        GameState.pendingAttacks = [];
+        GameState.casualties = {};
+        GameState.retreatingArmies = [];
+        GameState.alliances = [];
+        GameState.allianceRequests = [];
+
+        // Reset all provinces to unowned with no armies
+        Object.keys(GameState.provinces).forEach(provId => {
+            GameState.provinces[provId] = { owner: null, armies: {} };
+        });
+
+        // Clear protected provinces (will be re-set by imperial spawns)
+        GameState.protectedProvinces = {};
+
+        // Respawn each clan at their castle
+        Object.values(GameState.clans).forEach(clan => {
+            if (!clan.castleProvince) return;
+            const provId = clan.castleProvince;
+            const province = GameState.provinces[provId];
+            if (!province) return;
+
+            province.owner = clan.id;
+
+            // Check if this clan was imperial (rally cap 0)
+            if (clan.rallyCap === 0) {
+                // Imperial: no army, mark protected
+                GameState.protectedProvinces[provId] = clan.id;
+            } else {
+                // Normal: half rally cap as starting troops
+                const startingTroops = Math.floor(clan.rallyCap / 2);
+                province.armies[clan.id] = startingTroops;
+            }
+        });
+
+        GameState.addHistory("system", "Game reset to Week 1. All clans respawned at their castles.");
+        GameState.save();
+        MapRenderer.update();
+        App.updateUI();
+        this.render();
+
+        Notifications.show("Game reset to Week 1!", "success");
+    },
+
     setProvinceOwner() {
         const provId = document.getElementById("admin-province-select").value;
         const ownerId = document.getElementById("admin-province-owner-select").value;
@@ -530,10 +614,16 @@ const Admin = {
 
         const robloxId = robloxIdInput ? parseInt(robloxIdInput) : null;
 
+        // Get parent selection
+        const parentSelect = document.getElementById("admin-child-parent");
+        const parentDbId = parentSelect ? (parseInt(parentSelect.value) || null) : null;
+        const parentOption = parentSelect ? parentSelect.options[parentSelect.selectedIndex] : null;
+        const parentLocalId = parentOption ? parentOption.dataset.id : null;
+
         // Save to DB via API
         (async () => {
             try {
-                const result = await API.addFamilyMember(clanId, name, 'child', gender, robloxId);
+                const result = await API.addFamilyMember(clanId, name, 'child', gender, robloxId, null, parentDbId);
                 if (result && result.id) {
                     // Add to local CLAN_FAMILIES immediately
                     if (!CLAN_FAMILIES[clanId]) {
@@ -548,6 +638,7 @@ const Admin = {
                         gender: gender,
                         robloxId: robloxId || DEFAULT_ROBLOX_ID,
                         dbId: result.id,
+                        parentId: parentDbId ? ('db_' + parentDbId) : (parentLocalId || null),
                     });
 
                     const clanName = GameState.getClan(clanId)?.name || clanId;
@@ -623,39 +714,143 @@ const Admin = {
         if (!person) return;
 
         const clanName = GameState.getClan(clanId)?.name || clanId;
-        const isLeader = CLAN_FAMILIES[clanId]?.leader?.id === personId;
-
-        if (!confirm(`Kill ${person.name}? ${isLeader ? "(Daimyo — will dissolve marriages but clan leadership remains)" : "This will remove them permanently."}`)) return;
-
-        // Dissolve any marriages
-        if (Diplomacy.isMarried(personId)) {
-            const alliance = GameState.alliances.find(a =>
-                a.person1 === personId || a.person2 === personId
-            );
-            if (alliance) {
-                const spouseId = alliance.person1 === personId ? alliance.person2 : alliance.person1;
-                Diplomacy.dissolveMarriageByPersons(personId, spouseId);
-            }
-        }
-
-        // Clear pending proposals
-        GameState.allianceRequests = GameState.allianceRequests.filter(r =>
-            r.fromPerson !== personId && r.toPerson !== personId
-        );
+        const family = CLAN_FAMILIES[clanId];
+        const isLeader = family?.leader?.id === personId;
 
         if (isLeader) {
-            // Daimyo death — log it but don't remove from family (clan still needs a leader)
-            GameState.addHistory("system", `${person.name} of ${clanName} has died. Marriages dissolved.`);
-            Notifications.show(`${person.name} has been killed. Marriages dissolved.`, "warning");
+            // === Daimyo death — requires successor selection ===
+            const children = family.children.filter(c => !c.deceased);
+            if (children.length === 0) {
+                if (!confirm(`Kill ${person.name} (Daimyo)? No children available as successor — the clan will have no proper leader.`)) return;
+            } else {
+                // Build successor selection
+                const names = children.map((c, i) => `${i + 1}. ${c.name} (${c.gender})`).join('\n');
+                const choice = prompt(
+                    `Kill ${person.name} (Daimyo of ${clanName})?\n\n` +
+                    `Select a successor:\n${names}\n\n` +
+                    `Enter the number of the successor:`,
+                    '1'
+                );
+                if (choice === null) return;
+
+                const idx = parseInt(choice) - 1;
+                if (isNaN(idx) || idx < 0 || idx >= children.length) {
+                    Notifications.show("Invalid selection", "error");
+                    return;
+                }
+
+                const successor = children[idx];
+
+                // Move old daimyo to deceased members (preserving their marriage for parent lookup)
+                if (!GameState.deceasedMembers[clanId]) GameState.deceasedMembers[clanId] = [];
+                GameState.deceasedMembers[clanId].push({
+                    id: person.id,
+                    name: person.name,
+                    gender: person.gender,
+                    robloxId: person.robloxId || DEFAULT_ROBLOX_ID,
+                    title: person.title || '',
+                    deceased: true,
+                    wasLeader: true,
+                });
+
+                // Set children's parentId to the old daimyo (so they show as siblings under the deceased parent)
+                family.children.forEach(c => {
+                    if (!c.parentId) c.parentId = person.id;
+                });
+
+                // Promote successor to leader
+                family.leader = {
+                    id: successor.id,
+                    name: successor.name,
+                    title: 'Daimyo of ' + clanName,
+                    gender: successor.gender,
+                    robloxId: successor.robloxId || DEFAULT_ROBLOX_ID,
+                    parentId: person.id, // successor's parent is the old daimyo
+                };
+
+                // Remove successor from children list (they're the leader now)
+                family.children = family.children.filter(c => c.id !== successor.id);
+
+                // Clear pending proposals for the dead daimyo
+                GameState.allianceRequests = GameState.allianceRequests.filter(r =>
+                    r.fromPerson !== personId && r.toPerson !== personId
+                );
+
+                GameState.addHistory("system",
+                    `${person.name} of ${clanName} has died. ${successor.name} succeeds as Daimyo.`);
+                Notifications.show(`${person.name} has died. ${successor.name} is now Daimyo!`, "warning");
+                GameState.save();
+                this.renderFamilyList();
+                if (ClanPanel.currentClan === clanId) {
+                    ClanPanel.viewingCharacterId = null;
+                    ClanPanel.render(clanId);
+                }
+                return;
+            }
+
+            // No children case — just mark as dead
+            if (!GameState.deceasedMembers[clanId]) GameState.deceasedMembers[clanId] = [];
+            GameState.deceasedMembers[clanId].push({
+                id: person.id + '_deceased',
+                name: person.name,
+                gender: person.gender,
+                robloxId: person.robloxId || DEFAULT_ROBLOX_ID,
+                title: person.title || '',
+                deceased: true,
+                wasLeader: true,
+            });
+
+            // Dissolve marriages
+            if (Diplomacy.isMarried(personId)) {
+                const alliance = GameState.alliances.find(a =>
+                    a.person1 === personId || a.person2 === personId
+                );
+                if (alliance) {
+                    const spouseId = alliance.person1 === personId ? alliance.person2 : alliance.person1;
+                    Diplomacy.dissolveMarriageByPersons(personId, spouseId);
+                }
+            }
+            GameState.allianceRequests = GameState.allianceRequests.filter(r =>
+                r.fromPerson !== personId && r.toPerson !== personId
+            );
+
+            GameState.addHistory("system", `${person.name} of ${clanName} has died. No successor available.`);
+            Notifications.show(`${person.name} has died. No successor.`, "warning");
         } else {
-            // Child death — remove entirely
+            // === Child death ===
+            if (!confirm(`Kill ${person.name}? This will remove them permanently.`)) return;
+
+            // Dissolve any marriages
+            if (Diplomacy.isMarried(personId)) {
+                const alliance = GameState.alliances.find(a =>
+                    a.person1 === personId || a.person2 === personId
+                );
+                if (alliance) {
+                    const spouseId = alliance.person1 === personId ? alliance.person2 : alliance.person1;
+                    Diplomacy.dissolveMarriageByPersons(personId, spouseId);
+                }
+            }
+            GameState.allianceRequests = GameState.allianceRequests.filter(r =>
+                r.fromPerson !== personId && r.toPerson !== personId
+            );
+
+            // Add to deceased list so they still appear in the family tree
+            if (!GameState.deceasedMembers[clanId]) GameState.deceasedMembers[clanId] = [];
+            GameState.deceasedMembers[clanId].push({
+                id: person.id,
+                name: person.name,
+                gender: person.gender,
+                robloxId: person.robloxId || DEFAULT_ROBLOX_ID,
+                parentId: person.parentId || null,
+                deceased: true,
+            });
+
+            // Remove from living family
             if (person.dbId) {
                 API.removeFamilyMember(person.dbId).catch(err =>
                     console.warn("Failed to delete from DB:", err)
                 );
             }
-
-            const family = CLAN_FAMILIES[clanId];
             if (family) {
                 family.children = family.children.filter(c => c.id !== personId);
             }

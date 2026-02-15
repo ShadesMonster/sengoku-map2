@@ -123,6 +123,33 @@
     border: 1px solid rgba(200, 168, 78, 0.2);
 }
 
+.ck3-back-link {
+    position: absolute;
+    top: 6px;
+    left: 8px;
+    font-size: 10px;
+    color: var(--text-muted);
+    cursor: pointer;
+    z-index: 3;
+    padding: 2px 6px;
+    border-radius: 3px;
+    background: rgba(0,0,0,0.3);
+}
+
+.ck3-back-link:hover {
+    color: var(--accent-gold);
+}
+
+.ck3-family-member.deceased .ck3-avatar {
+    opacity: 0.5;
+    filter: grayscale(70%);
+}
+
+.ck3-family-member.deceased .ck3-member-name {
+    color: var(--text-muted);
+    font-style: italic;
+}
+
 /* Info Bar - Province count, territory name */
 #clan-info-bar {
     display: flex;
@@ -276,6 +303,53 @@
 
 .ck3-family-section:last-child {
     margin-bottom: 0;
+}
+
+/* Family Tree layout */
+.ftree-couple {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-bottom: 4px;
+}
+
+.ftree-heart {
+    color: #ff4466;
+    font-size: 14px;
+    flex-shrink: 0;
+}
+
+.ftree-heart-sm {
+    color: #ff4466;
+    font-size: 10px;
+    flex-shrink: 0;
+}
+
+.ftree-connector {
+    width: 2px;
+    height: 12px;
+    background: var(--border);
+    margin: 0 auto;
+}
+
+.ftree-children {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    justify-content: center;
+    padding-top: 4px;
+    border-top: 2px solid var(--border);
+}
+
+.ftree-child-pair {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    padding: 3px;
+    border: 1px solid rgba(255, 68, 102, 0.15);
+    border-radius: 4px;
+    background: rgba(255, 68, 102, 0.03);
 }
 
 .ck3-family-member {

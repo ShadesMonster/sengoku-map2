@@ -20,6 +20,16 @@ const Diplomacy = {
                 }
             }
         }
+        // Search deceased members
+        if (GameState.deceasedMembers) {
+            for (const [clanId, deceased] of Object.entries(GameState.deceasedMembers)) {
+                for (const person of deceased) {
+                    if (person.id === personId) {
+                        return { ...person, clanId, deceased: true };
+                    }
+                }
+            }
+        }
         return null;
     },
 
@@ -35,7 +45,7 @@ const Diplomacy = {
         const family = GameState.getFamily(clanId);
         if (!family) return [];
         const members = [family.leader, ...family.children];
-        return members.filter(m => !this.isMarried(m.id));
+        return members.filter(m => !this.isMarried(m.id) && !m.deceased);
     },
 
     // Propose marriage between two clan members

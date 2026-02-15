@@ -358,6 +358,7 @@ const Panels = {
 // CK3-style Clan Overview Panel (Left side)
 const ClanPanel = {
     currentClan: null,
+    viewingCharacterId: null, // null = show clan leader
 
     init() {
         document.getElementById("clan-panel-close").addEventListener("click", () => {
@@ -390,6 +391,7 @@ const ClanPanel = {
         if (!clan) { this.hide(); return; }
 
         this.currentClan = clanId;
+        this.viewingCharacterId = null; // reset to leader
         document.getElementById("clan-panel").classList.remove("hidden");
         this.closeMemberPopup();
         this.render(clanId);
@@ -399,6 +401,23 @@ const ClanPanel = {
         document.getElementById("clan-panel").classList.add("hidden");
         this.closeMemberPopup();
         this.currentClan = null;
+        this.viewingCharacterId = null;
+    },
+
+    // Navigate to a character's profile
+    viewCharacter(personId) {
+        const person = Diplomacy.getPerson(personId);
+        if (!person) return;
+
+        // If from a different clan, switch to that clan
+        if (person.clanId !== this.currentClan) {
+            this.currentClan = person.clanId;
+            document.getElementById("clan-panel").classList.remove("hidden");
+        }
+
+        this.viewingCharacterId = personId;
+        this.closeMemberPopup();
+        this.render(this.currentClan);
     },
 
     render(clanId) {
@@ -411,7 +430,7 @@ const ClanPanel = {
         const allies = GameState.getAllies(clanId);
         const isOwnClan = clanId === GameState.selectedClan;
 
-        // Portrait area
+        // Portrait area — shows viewing character (or leader)
         this.renderPortrait(clan, family);
 
         // Info bar
@@ -451,7 +470,7 @@ const ClanPanel = {
             </div>
         `;
 
-        // Family grid (Parents / Children / Siblings)
+        // Family sections — Parents / Spouse / Children / Siblings
         this.renderFamily(clanId, family);
 
         // Alliances
@@ -461,40 +480,51 @@ const ClanPanel = {
         this.renderProposals(clanId, isOwnClan);
     },
 
-    renderPortrait(clan, family) {
-        const leader = family.leader;
-        const leaderMarried = Diplomacy.isMarried(leader.id);
-        let spouseHtml = "";
+    // Get the currently viewed person
+    _getViewingPerson(family) {
+        if (this.viewingCharacterId) {
+            const person = Diplomacy.getPerson(this.viewingCharacterId);
+            if (person) return person;
+        }
+        return family.leader;
+    },
 
-        if (leaderMarried) {
-            const alliance = GameState.alliances.find(a =>
-                a.person1 === leader.id || a.person2 === leader.id
-            );
-            if (alliance) {
-                const spouseId = alliance.person1 === leader.id ? alliance.person2 : alliance.person1;
-                const spouse = Diplomacy.getPerson(spouseId);
-                if (spouse) {
-                    spouseHtml = `
-                        <div class="ck3-spouse-portrait" onclick="ClanPanel.showMemberPopup('${spouseId}', this)" title="${spouse.name}">
-                            ${RobloxAvatar.img(spouse.robloxId, 48, "ck3-avatar")}
-                            <span class="ck3-spouse-label">Spouse</span>
-                        </div>
-                    `;
-                }
-            }
+    renderPortrait(clan, family) {
+        const person = this._getViewingPerson(family);
+        const isLeader = person.id === family.leader.id;
+        const spouse = this._getSpouse(person.id);
+        const isDeceased = !!person.deceased;
+
+        let spouseHtml = "";
+        if (spouse) {
+            spouseHtml = `
+                <div class="ck3-spouse-portrait" onclick="ClanPanel.viewCharacter('${spouse.id}')" title="${spouse.name}">
+                    ${RobloxAvatar.img(spouse.robloxId, 48, "ck3-avatar")}
+                    <span class="ck3-spouse-label">Spouse</span>
+                </div>
+            `;
+        }
+
+        let backLink = "";
+        if (!isLeader) {
+            backLink = `<div class="ck3-back-link" onclick="ClanPanel.viewCharacter('${family.leader.id}')">&#8592; ${family.leader.name}</div>`;
         }
 
         const homeProv = PROVINCE_MAP[clan.castleProvince];
+        const title = person.title || (isLeader ? "Daimyo" : "");
+        const role = isLeader ? "Daimyo" : "Family Member";
+
         document.getElementById("clan-portrait-area").innerHTML = `
-            <div class="ck3-leader-portrait" onclick="ClanPanel.showMemberPopup('${leader.id}', this)">
-                ${RobloxAvatar.img(leader.robloxId, 100, "ck3-avatar")}
+            ${backLink}
+            <div class="ck3-leader-portrait">
+                ${RobloxAvatar.img(person.robloxId, 100, "ck3-avatar")}
                 ${spouseHtml}
             </div>
             <div class="ck3-leader-details">
-                <div class="ck3-leader-name">${leader.name}</div>
+                <div class="ck3-leader-name">${person.name}${isDeceased ? ' <span style="color:#888;font-size:11px">(Deceased)</span>' : ''}</div>
                 <div class="ck3-clan-name" style="color: ${clan.color}">${clan.japaneseName} ${clan.name}</div>
-                <div class="ck3-leader-title">${leader.title}</div>
-                ${homeProv ? `<div class="ck3-capital-badge">&#x1F3EF; ${homeProv.japaneseName} ${homeProv.name}</div>` : ""}
+                <div class="ck3-leader-title">${title || role}</div>
+                ${isLeader && homeProv ? `<div class="ck3-capital-badge">&#x1F3EF; ${homeProv.japaneseName} ${homeProv.name}</div>` : ""}
             </div>
         `;
     },
@@ -504,141 +534,207 @@ const ClanPanel = {
         const genderIcon = person.gender === "male" ? "&#9794;" : "&#9792;";
         const genderClass = person.gender;
         const isDaimyo = !!person.title;
+        const isDeceased = !!person.deceased;
         const shortName = isDaimyo ? person.name : person.name.split(' ').pop();
 
         let marriedBadge = "";
         if (married) {
-            const alliance = GameState.alliances.find(a =>
-                a.person1 === person.id || a.person2 === person.id
-            );
-            if (alliance) {
-                const spouseId = alliance.person1 === person.id ? alliance.person2 : alliance.person1;
-                const spouse = Diplomacy.getPerson(spouseId);
-                if (spouse) {
-                    marriedBadge = `<span class="ck3-married-badge">&#10084;</span>`;
-                }
-            }
+            marriedBadge = `<span class="ck3-married-badge">&#10084;</span>`;
         }
 
         return `
-            <div class="ck3-family-member ${married ? "married" : ""} ${isDaimyo ? "daimyo" : ""}"
-                 onclick="ClanPanel.showMemberPopup('${person.id}', this)" title="${person.name}">
+            <div class="ck3-family-member ${married ? "married" : ""} ${isDaimyo ? "daimyo" : ""} ${isDeceased ? "deceased" : ""}"
+                 onclick="ClanPanel.viewCharacter('${person.id}')" title="${person.name}${isDeceased ? ' (Deceased)' : ''}">
                 <span class="ck3-gender ${genderClass}">${genderIcon}</span>
                 ${RobloxAvatar.img(person.robloxId, 48, "ck3-avatar")}
-                <span class="ck3-member-name">${shortName}</span>
+                <span class="ck3-member-name">${shortName}${isDeceased ? ' +' : ''}</span>
                 ${marriedBadge}
             </div>
         `;
     },
 
-    renderFamily(clanId, family) {
-        const container = document.getElementById("clan-family-grid");
-        const leader = family.leader;
-        const children = family.children;
+    // === Family relation helpers ===
 
-        // Separate children by gender to approximate siblings concept
-        // "Daimyo" section = the leader (parent)
-        // "Children" section = the children
-        let html = "";
-
-        // Daimyo (Parent)
-        html += `<div class="ck3-family-section">`;
-        html += `<div class="ck3-family-header">Daimyo</div>`;
-        html += `<div class="ck3-family-row">`;
-        html += this._renderMemberCard(leader, clanId);
-        html += `</div></div>`;
-
-        // Children
-        if (children.length > 0) {
-            html += `<div class="ck3-family-section">`;
-            html += `<div class="ck3-family-header">Children (${children.length})</div>`;
-            html += `<div class="ck3-family-row">`;
-            children.forEach(child => {
-                html += this._renderMemberCard(child, clanId);
-            });
-            html += `</div></div>`;
-        }
-
-        container.innerHTML = html;
+    _getSpouse(personId) {
+        const marriage = GameState.alliances.find(a =>
+            a.person1 === personId || a.person2 === personId
+        );
+        if (!marriage) return null;
+        const spouseId = marriage.person1 === personId ? marriage.person2 : marriage.person1;
+        return Diplomacy.getPerson(spouseId);
     },
 
-    // Member popup - shows detail when clicking a family member
-    showMemberPopup(personId, element) {
-        event.stopPropagation();
-        const person = Diplomacy.getPerson(personId);
-        if (!person) return;
+    _getAllFamilyMembers(clanId) {
+        const family = CLAN_FAMILIES[clanId];
+        if (!family) return [];
+        const dynKids = GameState.dynamicChildren[clanId] || [];
+        const deceased = GameState.deceasedMembers[clanId] || [];
+        return [...family.children, ...dynKids, ...deceased];
+    },
 
-        const popup = document.getElementById("member-popup");
-        const clan = GameState.getClan(person.clanId);
-        const married = Diplomacy.isMarried(personId);
-        const isDaimyo = !!person.title;
-        const myClan = GameState.selectedClan;
-        const isOtherClan = myClan && person.clanId !== myClan;
+    _getParents(personId, clanId) {
+        const family = CLAN_FAMILIES[clanId];
+        if (!family) return [];
 
-        let spouseInfo = "";
-        if (married) {
-            const alliance = GameState.alliances.find(a =>
-                a.person1 === personId || a.person2 === personId
-            );
-            if (alliance) {
-                const spouseId = alliance.person1 === personId ? alliance.person2 : alliance.person1;
-                const spouse = Diplomacy.getPerson(spouseId);
-                if (spouse) {
-                    const spouseClan = GameState.getClan(spouse.clanId);
-                    spouseInfo = `
-                        <div class="popup-spouse">
-                            <span class="marriage-heart">&#10084;</span>
-                            ${RobloxAvatar.img(spouse.robloxId, 28, "ck3-avatar")}
-                            <div>
-                                <div class="popup-spouse-name">${spouse.name}</div>
-                                <div class="popup-spouse-clan" style="color: ${spouseClan ? spouseClan.color : '#888'}">${spouseClan ? spouseClan.name : '?'}</div>
-                            </div>
+        const allMembers = this._getAllFamilyMembers(clanId);
+        const person = allMembers.find(m => m.id === personId);
+
+        // Check if this person has a parentId
+        let parentId = person?.parentId;
+
+        // If no parentId and this person is a direct child (not the leader), assume leader is parent
+        if (!parentId && person && family.leader.id !== personId) {
+            // Only if they're a direct child with no explicit parent
+            const hasExplicitParent = allMembers.some(m => m.parentId);
+            if (!hasExplicitParent) {
+                parentId = family.leader.id;
+            }
+        }
+
+        if (!parentId) return [];
+
+        const parent = Diplomacy.getPerson(parentId);
+        if (!parent) return [];
+
+        const parents = [parent];
+        const spouse = this._getSpouse(parentId);
+        if (spouse) parents.push(spouse);
+
+        return parents;
+    },
+
+    _getChildren(personId, clanId) {
+        const family = CLAN_FAMILIES[clanId];
+        if (!family) return [];
+
+        const allMembers = this._getAllFamilyMembers(clanId);
+        const hasAnyParentIds = allMembers.some(m => m.parentId);
+
+        return allMembers.filter(c => {
+            if (c.parentId) return c.parentId === personId;
+            // No parentId set on anyone — default: leader owns all children
+            if (!hasAnyParentIds) return personId === family.leader.id;
+            return false;
+        });
+    },
+
+    _getSiblings(personId, clanId) {
+        const family = CLAN_FAMILIES[clanId];
+        if (!family) return [];
+
+        const allMembers = this._getAllFamilyMembers(clanId);
+        const person = allMembers.find(c => c.id === personId);
+
+        if (!person) {
+            // If this is the leader, they have no siblings
+            if (family.leader.id === personId) return [];
+            return [];
+        }
+
+        const hasAnyParentIds = allMembers.some(m => m.parentId);
+
+        return allMembers.filter(c => {
+            if (c.id === personId) return false;
+            if (c.parentId && person.parentId) return c.parentId === person.parentId;
+            if (!hasAnyParentIds) return true; // all are siblings under the leader
+            if (!c.parentId && !person.parentId) return true;
+            return false;
+        });
+    },
+
+    renderFamily(clanId, family) {
+        const container = document.getElementById("clan-family-grid");
+        const person = this._getViewingPerson(family);
+        const viewId = person.id;
+
+        let html = '';
+
+        // --- Parents ---
+        const parents = this._getParents(viewId, clanId);
+        if (parents.length > 0) {
+            html += `<div class="ck3-family-header">Parents</div>`;
+            html += `<div class="ftree-couple">`;
+            parents.forEach((p, i) => {
+                if (i > 0) html += `<span class="ftree-heart">&#10084;</span>`;
+                html += this._renderMemberCard(p, p.clanId || clanId);
+            });
+            html += `</div>`;
+        }
+
+        // --- Spouse ---
+        const spouse = this._getSpouse(viewId);
+        if (spouse) {
+            html += `<div class="ck3-family-header">Spouse</div>`;
+            html += `<div class="ftree-couple">`;
+            html += this._renderMemberCard(spouse, spouse.clanId || clanId);
+            html += `</div>`;
+        }
+
+        // --- Marriage proposal action ---
+        if (!spouse && !person.deceased) {
+            const myClan = GameState.selectedClan;
+            const isOtherClan = myClan && person.clanId !== myClan;
+            if (isOtherClan) {
+                const myUnmarried = Diplomacy.getUnmarriedMembers(myClan)
+                    .filter(m => m.gender !== person.gender);
+                if (myUnmarried.length > 0) {
+                    html += `
+                        <div class="ck3-family-header">Marriage</div>
+                        <div class="popup-action" style="padding:0 0 6px">
+                            <select id="popup-my-member" style="padding:4px 6px;background:var(--bg-card);border:1px solid var(--border);color:var(--text-primary);border-radius:4px;font-size:11px">
+                                ${myUnmarried.map(m => {
+                                    const icon = m.gender === "male" ? "&#9794;" : "&#9792;";
+                                    const tag = m.title ? " (Daimyo)" : "";
+                                    return `<option value="${m.id}">${icon} ${m.name}${tag}</option>`;
+                                }).join("")}
+                            </select>
+                            <button class="small-btn commit" onclick="ClanPanel.proposeFromPopup('${viewId}')">Propose Marriage</button>
                         </div>
                     `;
                 }
             }
         }
 
-        // Marriage action: show if this is another clan's unmarried member and player has opposite-sex unmarried members
-        let actionHtml = "";
-        if (!married && isOtherClan) {
-            const myUnmarried = Diplomacy.getUnmarriedMembers(myClan)
-                .filter(m => m.gender !== person.gender); // opposite sex only
-            if (myUnmarried.length > 0) {
-                actionHtml = `
-                    <div class="popup-action">
-                        <label>Propose marriage with:</label>
-                        <select id="popup-my-member">
-                            ${myUnmarried.map(m => {
-                                const icon = m.gender === "male" ? "&#9794;" : "&#9792;";
-                                const tag = m.title ? " (Daimyo)" : "";
-                                return `<option value="${m.id}">${icon} ${m.name}${tag}</option>`;
-                            }).join("")}
-                        </select>
-                        <button class="small-btn commit" onclick="ClanPanel.proposeFromPopup('${personId}')">Propose Marriage</button>
-                    </div>
-                `;
-            } else if (Diplomacy.getUnmarriedMembers(myClan).length === 0) {
-                actionHtml = `<div class="popup-status">No unmarried family members available</div>`;
-            }
+        // --- Children ---
+        const children = this._getChildren(viewId, clanId);
+        if (children.length > 0) {
+            html += `<div class="ck3-family-header">Children (${children.length})</div>`;
+            html += `<div class="ftree-children" style="border-top:none;padding-top:0">`;
+            children.forEach(child => {
+                const childSpouse = this._getSpouse(child.id);
+                if (childSpouse) {
+                    html += `<div class="ftree-child-pair">`;
+                    html += this._renderMemberCard(child, clanId);
+                    html += `<span class="ftree-heart-sm">&#10084;</span>`;
+                    html += this._renderMemberCard(childSpouse, childSpouse.clanId || clanId);
+                    html += `</div>`;
+                } else {
+                    html += this._renderMemberCard(child, clanId);
+                }
+            });
+            html += `</div>`;
         }
 
-        const genderIcon = person.gender === "male" ? "&#9794;" : "&#9792;";
+        // --- Siblings ---
+        const siblings = this._getSiblings(viewId, clanId);
+        if (siblings.length > 0) {
+            html += `<div class="ck3-family-header">Siblings (${siblings.length})</div>`;
+            html += `<div class="ftree-children" style="border-top:none;padding-top:0">`;
+            siblings.forEach(sib => html += this._renderMemberCard(sib, clanId));
+            html += `</div>`;
+        }
 
-        popup.innerHTML = `
-            <div class="popup-header">
-                ${RobloxAvatar.img(person.robloxId, 44, "ck3-avatar")}
-                <div class="popup-info">
-                    <div class="popup-name">${person.name} <span class="ck3-gender ${person.gender}" style="position:static;background:none;border:none">${genderIcon}</span></div>
-                    <div class="popup-role" style="color: ${clan ? clan.color : '#888'}">${isDaimyo ? "Daimyo" : "Child"} — ${clan ? clan.name : "?"}</div>
-                    <div class="popup-status-text">${married ? "Married" : "Unmarried"}</div>
-                </div>
-            </div>
-            ${spouseInfo}
-            ${actionHtml}
-        `;
+        if (!html) {
+            html = '<div class="empty-state">No family relations</div>';
+        }
 
-        popup.classList.remove("hidden");
+        container.innerHTML = html;
+    },
+
+    // Member popup (kept for detailed view / legacy)
+    showMemberPopup(personId, element) {
+        event.stopPropagation();
+        this.viewCharacter(personId);
     },
 
     closeMemberPopup() {
@@ -656,7 +752,6 @@ const ClanPanel = {
         const result = Diplomacy.proposeMarriage(myClan, myMemberId, targetPerson.clanId, targetPersonId);
         if (result.success) {
             Notifications.show("Marriage proposal sent!", "success");
-            this.closeMemberPopup();
             this.render(this.currentClan);
         } else {
             Notifications.show(result.error, "error");

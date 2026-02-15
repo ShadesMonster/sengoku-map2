@@ -509,6 +509,7 @@
                     <button id="admin-toggle-phase" class="admin-btn">Toggle Phase</button>
                     <button id="admin-process-moves" class="admin-btn">Process Moves → Battles</button>
                     <button id="admin-advance-week" class="admin-btn">Advance Week</button>
+                    <button id="admin-reset-game" class="admin-btn danger">Reset Game</button>
                 </div>
                 <div id="admin-provinces" class="admin-section">
                     <h3>Province Management</h3>
@@ -536,6 +537,9 @@
                             <option value="female">Female</option>
                         </select>
                         <input type="number" id="admin-child-robloxid" placeholder="Roblox ID (optional)"/>
+                        <select id="admin-child-parent">
+                            <option value="">Parent: Daimyo (default)</option>
+                        </select>
                         <button id="admin-add-child" class="admin-btn">Add Child</button>
                     </div>
                     <div id="admin-family-list"></div>

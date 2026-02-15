@@ -122,6 +122,7 @@ const API = {
                     gender: c.gender,
                     robloxId: c.robloxId || DEFAULT_ROBLOX_ID,
                     dbId: c.dbId,
+                    parentId: c.parentId || null,
                 }));
 
                 // Merge: use DB children; if none from DB, fall back to hardcoded
@@ -170,7 +171,7 @@ const API = {
     },
 
     // Add a family member
-    async addFamilyMember(clanKey, characterName, role, gender, robloxUserId, title) {
+    async addFamilyMember(clanKey, characterName, role, gender, robloxUserId, title, parentDbId) {
         return this.request("families", "POST", {
             clan: clanKey,
             character_name: characterName,
@@ -178,6 +179,7 @@ const API = {
             gender,
             roblox_user_id: robloxUserId || null,
             title: title || null,
+            parent_id: parentDbId || null,
         });
     },
 
