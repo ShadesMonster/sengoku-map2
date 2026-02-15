@@ -701,6 +701,10 @@
 .clan-jpname-input { background: var(--bg-dark); color: var(--text); border: 1px solid var(--border); padding: 2px 4px; font-size: 11px; }
 .imperial-label { font-size: 11px; color: #d4af37; display: flex; align-items: center; gap: 4px; cursor: pointer; }
 .imperial-check { accent-color: #d4af37; }
+.admin-child-entry { display: flex; justify-content: space-between; align-items: center; padding: 2px 0; font-size: 11px; }
+.admin-child-entry div { display: flex; gap: 3px; }
+.daimyo-entry { border-bottom: 1px solid var(--border); padding-bottom: 3px; margin-bottom: 3px; }
+.kill-btn { font-size: 10px; }
 
 /* Order entries */
 .orders-section {

@@ -22,91 +22,22 @@ const AUTO_COLORS = [
     "#cc8844", "#4488aa", "#aa8844", "#44aa88"
 ];
 
-// Clan family data - leaders and children for marriage alliances
+// Clan family fallback data - leaders only (children come from DB)
 // robloxId is used to fetch profile pictures from Roblox API
-// Admins can update robloxId per person; defaults to placeholder
+// These are overridden by loadFamiliesFromDB() when the API is available
 const DEFAULT_ROBLOX_ID = 9003341;
 
 const CLAN_FAMILIES = {
-    oda: {
-        leader: { id: "oda_nobunaga", name: "Oda Nobunaga", title: "The Fool of Owari", gender: "male", robloxId: DEFAULT_ROBLOX_ID },
-        children: [
-            { id: "oda_nobutada", name: "Oda Nobutada", gender: "male", robloxId: DEFAULT_ROBLOX_ID },
-            { id: "oda_tokuhime", name: "Tokuhime", gender: "female", robloxId: DEFAULT_ROBLOX_ID },
-            { id: "oda_nobukatsu", name: "Oda Nobukatsu", gender: "male", robloxId: DEFAULT_ROBLOX_ID }
-        ]
-    },
-    takeda: {
-        leader: { id: "takeda_shingen", name: "Takeda Shingen", title: "Tiger of Kai", gender: "male", robloxId: DEFAULT_ROBLOX_ID },
-        children: [
-            { id: "takeda_katsuyori", name: "Takeda Katsuyori", gender: "male", robloxId: DEFAULT_ROBLOX_ID },
-            { id: "takeda_matsuhime", name: "Matsuhime", gender: "female", robloxId: DEFAULT_ROBLOX_ID }
-        ]
-    },
-    uesugi: {
-        leader: { id: "uesugi_kenshin", name: "Uesugi Kenshin", title: "Dragon of Echigo", gender: "male", robloxId: DEFAULT_ROBLOX_ID },
-        children: [
-            { id: "uesugi_kagekatsu", name: "Uesugi Kagekatsu", gender: "male", robloxId: DEFAULT_ROBLOX_ID },
-            { id: "uesugi_aya", name: "Aya-Gozen", gender: "female", robloxId: DEFAULT_ROBLOX_ID }
-        ]
-    },
-    tokugawa: {
-        leader: { id: "tokugawa_ieyasu", name: "Tokugawa Ieyasu", title: "The Patient Tiger", gender: "male", robloxId: DEFAULT_ROBLOX_ID },
-        children: [
-            { id: "tokugawa_hidetada", name: "Tokugawa Hidetada", gender: "male", robloxId: DEFAULT_ROBLOX_ID },
-            { id: "tokugawa_kamehime", name: "Kamehime", gender: "female", robloxId: DEFAULT_ROBLOX_ID },
-            { id: "tokugawa_tadayoshi", name: "Tokugawa Tadayoshi", gender: "male", robloxId: DEFAULT_ROBLOX_ID }
-        ]
-    },
-    mori: {
-        leader: { id: "mori_motonari", name: "Mori Motonari", title: "The Three Arrows", gender: "male", robloxId: DEFAULT_ROBLOX_ID },
-        children: [
-            { id: "mori_takamoto", name: "Mori Takamoto", gender: "male", robloxId: DEFAULT_ROBLOX_ID },
-            { id: "mori_myokyu", name: "Myokyu-ni", gender: "female", robloxId: DEFAULT_ROBLOX_ID }
-        ]
-    },
-    shimazu: {
-        leader: { id: "shimazu_yoshihisa", name: "Shimazu Yoshihisa", title: "Lord of Satsuma", gender: "male", robloxId: DEFAULT_ROBLOX_ID },
-        children: [
-            { id: "shimazu_tadatsune", name: "Shimazu Tadatsune", gender: "male", robloxId: DEFAULT_ROBLOX_ID },
-            { id: "shimazu_kamesa", name: "Kamesa-hime", gender: "female", robloxId: DEFAULT_ROBLOX_ID }
-        ]
-    },
-    hojo: {
-        leader: { id: "hojo_ujiyasu", name: "Hojo Ujiyasu", title: "The Lion of Sagami", gender: "male", robloxId: DEFAULT_ROBLOX_ID },
-        children: [
-            { id: "hojo_ujimasa", name: "Hojo Ujimasa", gender: "male", robloxId: DEFAULT_ROBLOX_ID },
-            { id: "hojo_hayakawa", name: "Hayakawa-dono", gender: "female", robloxId: DEFAULT_ROBLOX_ID }
-        ]
-    },
-    chosokabe: {
-        leader: { id: "chosokabe_motochika", name: "Chosokabe Motochika", title: "Bat of Tosa", gender: "male", robloxId: DEFAULT_ROBLOX_ID },
-        children: [
-            { id: "chosokabe_nobuchika", name: "Chosokabe Nobuchika", gender: "male", robloxId: DEFAULT_ROBLOX_ID },
-            { id: "chosokabe_nana", name: "Nana-hime", gender: "female", robloxId: DEFAULT_ROBLOX_ID }
-        ]
-    },
-    date: {
-        leader: { id: "date_masamune", name: "Date Masamune", title: "One-Eyed Dragon", gender: "male", robloxId: DEFAULT_ROBLOX_ID },
-        children: [
-            { id: "date_hidemune", name: "Date Hidemune", gender: "male", robloxId: DEFAULT_ROBLOX_ID },
-            { id: "date_iroha", name: "Iroha-hime", gender: "female", robloxId: DEFAULT_ROBLOX_ID },
-            { id: "date_tadamune", name: "Date Tadamune", gender: "male", robloxId: DEFAULT_ROBLOX_ID }
-        ]
-    },
-    imagawa: {
-        leader: { id: "imagawa_yoshimoto", name: "Imagawa Yoshimoto", title: "Aristocrat of the East", gender: "male", robloxId: DEFAULT_ROBLOX_ID },
-        children: [
-            { id: "imagawa_ujizane", name: "Imagawa Ujizane", gender: "male", robloxId: DEFAULT_ROBLOX_ID },
-            { id: "imagawa_reishoin", name: "Reishoin", gender: "female", robloxId: DEFAULT_ROBLOX_ID }
-        ]
-    },
-    "imperial court": {
-        leader: { id: "imperial_emperor", name: "Emperor", title: "Son of Heaven", gender: "male", robloxId: DEFAULT_ROBLOX_ID },
-        children: []
-    },
-    soma: {
-        leader: { id: "soma_yoshitane", name: "Soma Yoshitane", title: "Lord of Soma", gender: "male", robloxId: DEFAULT_ROBLOX_ID },
-        children: []
-    }
+    oda:              { leader: { id: "oda_daimyo", name: "Oda Daimyo", title: "", gender: "male", robloxId: DEFAULT_ROBLOX_ID }, children: [] },
+    takeda:           { leader: { id: "takeda_daimyo", name: "Takeda Daimyo", title: "", gender: "male", robloxId: DEFAULT_ROBLOX_ID }, children: [] },
+    uesugi:           { leader: { id: "uesugi_daimyo", name: "Uesugi Daimyo", title: "", gender: "male", robloxId: DEFAULT_ROBLOX_ID }, children: [] },
+    tokugawa:         { leader: { id: "tokugawa_daimyo", name: "Tokugawa Daimyo", title: "", gender: "male", robloxId: DEFAULT_ROBLOX_ID }, children: [] },
+    mori:             { leader: { id: "mori_daimyo", name: "Mori Daimyo", title: "", gender: "male", robloxId: DEFAULT_ROBLOX_ID }, children: [] },
+    shimazu:          { leader: { id: "shimazu_daimyo", name: "Shimazu Daimyo", title: "", gender: "male", robloxId: DEFAULT_ROBLOX_ID }, children: [] },
+    hojo:             { leader: { id: "hojo_daimyo", name: "Hojo Daimyo", title: "", gender: "male", robloxId: DEFAULT_ROBLOX_ID }, children: [] },
+    chosokabe:        { leader: { id: "chosokabe_daimyo", name: "Chosokabe Daimyo", title: "", gender: "male", robloxId: DEFAULT_ROBLOX_ID }, children: [] },
+    date:             { leader: { id: "date_daimyo", name: "Date Daimyo", title: "", gender: "male", robloxId: DEFAULT_ROBLOX_ID }, children: [] },
+    imagawa:          { leader: { id: "imagawa_daimyo", name: "Imagawa Daimyo", title: "", gender: "male", robloxId: DEFAULT_ROBLOX_ID }, children: [] },
+    "imperial court": { leader: { id: "imperial_court_daimyo", name: "Emperor", title: "Son of Heaven", gender: "male", robloxId: DEFAULT_ROBLOX_ID }, children: [] },
+    soma:             { leader: { id: "soma_daimyo", name: "Soma Daimyo", title: "", gender: "male", robloxId: DEFAULT_ROBLOX_ID }, children: [] },
 };

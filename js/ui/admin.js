@@ -518,45 +518,50 @@ const Admin = {
             return;
         }
 
-        const robloxId = robloxIdInput ? parseInt(robloxIdInput) : DEFAULT_ROBLOX_ID;
-        const childId = `${clanId}_child_${Date.now()}`;
+        const robloxId = robloxIdInput ? parseInt(robloxIdInput) : null;
 
-        if (!GameState.dynamicChildren[clanId]) {
-            GameState.dynamicChildren[clanId] = [];
-        }
+        // Save to DB via API
+        (async () => {
+            try {
+                const result = await API.addFamilyMember(clanId, name, 'child', gender, robloxId);
+                if (result && result.id) {
+                    // Add to local CLAN_FAMILIES immediately
+                    if (!CLAN_FAMILIES[clanId]) {
+                        CLAN_FAMILIES[clanId] = {
+                            leader: { id: `${clanId.replace(/\s+/g, '_')}_daimyo`, name: 'Daimyo', title: '', gender: 'male', robloxId: DEFAULT_ROBLOX_ID },
+                            children: []
+                        };
+                    }
+                    CLAN_FAMILIES[clanId].children.push({
+                        id: 'db_' + result.id,
+                        name: name,
+                        gender: gender,
+                        robloxId: robloxId || DEFAULT_ROBLOX_ID,
+                        dbId: result.id,
+                    });
 
-        GameState.dynamicChildren[clanId].push({
-            id: childId,
-            name: name,
-            gender: gender,
-            robloxId: robloxId
-        });
+                    const clanName = GameState.getClan(clanId)?.name || clanId;
+                    GameState.addHistory("system", `Admin added child "${name}" to ${clanName}`);
+                    Notifications.show(`Added ${name} to ${clanName}`, "success");
 
-        GameState.save();
-
-        const clanName = GameState.getClan(clanId).name;
-        GameState.addHistory("system", `Admin added child "${name}" to ${clanName}`);
-        Notifications.show(`Added ${name} to ${clanName}`, "success");
-
-        document.getElementById("admin-child-name").value = "";
-        document.getElementById("admin-child-robloxid").value = "";
-
-        this.renderFamilyList();
-
-        if (ClanPanel.currentClan === clanId) {
-            ClanPanel.render(clanId);
-        }
+                    document.getElementById("admin-child-name").value = "";
+                    document.getElementById("admin-child-robloxid").value = "";
+                    this.renderFamilyList();
+                    if (ClanPanel.currentClan === clanId) ClanPanel.render(clanId);
+                }
+            } catch (err) {
+                Notifications.show("Failed to add child: " + err.message, "error");
+            }
+        })();
     },
 
-    removeChild(clanId, childId) {
-        const children = GameState.dynamicChildren[clanId];
-        if (!children) return;
+    async deleteChild(clanId, childId) {
+        const person = Diplomacy.getPerson(childId);
+        if (!person) return;
 
-        const idx = children.findIndex(c => c.id === childId);
-        if (idx === -1) return;
+        if (!confirm(`Delete ${person.name}?`)) return;
 
-        const child = children[idx];
-
+        // Dissolve any marriages
         if (Diplomacy.isMarried(childId)) {
             const alliance = GameState.alliances.find(a =>
                 a.person1 === childId || a.person2 === childId
@@ -567,53 +572,166 @@ const Admin = {
             }
         }
 
+        // Clear pending proposals
         GameState.allianceRequests = GameState.allianceRequests.filter(r =>
             r.fromPerson !== childId && r.toPerson !== childId
         );
 
-        children.splice(idx, 1);
+        // Remove from DB if it's a DB child
+        if (person.dbId) {
+            try {
+                await API.removeFamilyMember(person.dbId);
+            } catch (err) {
+                Notifications.show("Failed to delete from DB: " + err.message, "error");
+                return;
+            }
+        }
+
+        // Remove from CLAN_FAMILIES
+        const family = CLAN_FAMILIES[clanId];
+        if (family) {
+            family.children = family.children.filter(c => c.id !== childId);
+        }
+
+        // Also remove from dynamicChildren if present
+        if (GameState.dynamicChildren[clanId]) {
+            GameState.dynamicChildren[clanId] = GameState.dynamicChildren[clanId].filter(c => c.id !== childId);
+        }
+
         GameState.save();
 
-        const clanName = GameState.getClan(clanId).name;
-        GameState.addHistory("system", `Admin removed child "${child.name}" from ${clanName}`);
-        Notifications.show(`Removed ${child.name} from ${clanName}`, "warning");
+        const clanName = GameState.getClan(clanId)?.name || clanId;
+        GameState.addHistory("system", `Admin removed ${person.name} from ${clanName}`);
+        Notifications.show(`Removed ${person.name}`, "warning");
 
         this.renderFamilyList();
+        if (ClanPanel.currentClan === clanId) ClanPanel.render(clanId);
+    },
 
-        if (ClanPanel.currentClan === clanId) {
-            ClanPanel.render(clanId);
+    killPerson(clanId, personId) {
+        const person = Diplomacy.getPerson(personId);
+        if (!person) return;
+
+        const clanName = GameState.getClan(clanId)?.name || clanId;
+        const isLeader = CLAN_FAMILIES[clanId]?.leader?.id === personId;
+
+        if (!confirm(`Kill ${person.name}? ${isLeader ? "(Daimyo — will dissolve marriages but clan leadership remains)" : "This will remove them permanently."}`)) return;
+
+        // Dissolve any marriages
+        if (Diplomacy.isMarried(personId)) {
+            const alliance = GameState.alliances.find(a =>
+                a.person1 === personId || a.person2 === personId
+            );
+            if (alliance) {
+                const spouseId = alliance.person1 === personId ? alliance.person2 : alliance.person1;
+                Diplomacy.dissolveMarriageByPersons(personId, spouseId);
+            }
         }
+
+        // Clear pending proposals
+        GameState.allianceRequests = GameState.allianceRequests.filter(r =>
+            r.fromPerson !== personId && r.toPerson !== personId
+        );
+
+        if (isLeader) {
+            // Daimyo death — log it but don't remove from family (clan still needs a leader)
+            GameState.addHistory("system", `${person.name} of ${clanName} has died. Marriages dissolved.`);
+            Notifications.show(`${person.name} has been killed. Marriages dissolved.`, "warning");
+        } else {
+            // Child death — remove entirely
+            if (person.dbId) {
+                API.removeFamilyMember(person.dbId).catch(err =>
+                    console.warn("Failed to delete from DB:", err)
+                );
+            }
+
+            const family = CLAN_FAMILIES[clanId];
+            if (family) {
+                family.children = family.children.filter(c => c.id !== personId);
+            }
+            if (GameState.dynamicChildren[clanId]) {
+                GameState.dynamicChildren[clanId] = GameState.dynamicChildren[clanId].filter(c => c.id !== personId);
+            }
+
+            GameState.addHistory("system", `${person.name} of ${clanName} has been killed.`);
+            Notifications.show(`${person.name} has been killed.`, "warning");
+        }
+
+        GameState.save();
+        this.renderFamilyList();
+        if (ClanPanel.currentClan === clanId) ClanPanel.render(clanId);
     },
 
     renderFamilyList() {
         const list = document.getElementById("admin-family-list");
-        const allDynamic = Object.entries(GameState.dynamicChildren);
+        const clans = Object.keys(GameState.clans);
 
-        if (allDynamic.length === 0 || allDynamic.every(([, kids]) => kids.length === 0)) {
-            list.innerHTML = '<div class="empty-state">No admin-added children</div>';
+        if (clans.length === 0) {
+            list.innerHTML = '<div class="empty-state">No clans loaded</div>';
             return;
         }
 
-        list.innerHTML = allDynamic
-            .filter(([, kids]) => kids.length > 0)
-            .map(([clanId, kids]) => {
+        // Show all clans that have family data
+        const entries = clans
+            .filter(clanId => CLAN_FAMILIES[clanId])
+            .map(clanId => {
                 const clan = GameState.getClan(clanId);
-                if (!clan) return "";
-                return `
+                const family = CLAN_FAMILIES[clanId];
+                if (!clan || !family) return "";
+
+                const leader = family.leader;
+                const children = family.children || [];
+                // Also include dynamicChildren
+                const dynKids = (GameState.dynamicChildren[clanId] || []);
+
+                // Combine — avoid duplicates by id
+                const childIds = new Set(children.map(c => c.id));
+                const allChildren = [...children, ...dynKids.filter(d => !childIds.has(d.id))];
+
+                const safeId = clanId.replace(/'/g, "\\'");
+
+                let html = `
                     <div class="admin-family-clan" style="border-left: 3px solid ${clan.color}; margin-bottom: 8px; padding-left: 8px;">
-                        <strong style="color: ${clan.color}">${clan.name}</strong>
-                        ${kids.map(child => {
-                            const genderIcon = child.gender === "male" ? "♂" : "♀";
-                            const married = Diplomacy.isMarried(child.id);
-                            return `
-                                <div class="admin-child-entry">
-                                    <span>${genderIcon} ${child.name}${married ? " ❤" : ""}</span>
-                                    <button class="small-btn danger" onclick="Admin.removeChild('${clanId}', '${child.id}')">Remove</button>
-                                </div>
-                            `;
-                        }).join("")}
-                    </div>
+                        <strong style="color: ${clan.color}">${clan.japaneseName} ${clan.name}</strong>
                 `;
-            }).join("");
+
+                // Leader
+                if (leader) {
+                    const married = Diplomacy.isMarried(leader.id);
+                    html += `
+                        <div class="admin-child-entry daimyo-entry">
+                            <span>&#x1F451; ${leader.name}${leader.title ? ' — ' + leader.title : ''}${married ? " ❤" : ""}</span>
+                            <button class="small-btn danger kill-btn" onclick="Admin.killPerson('${safeId}', '${leader.id}')">Kill</button>
+                        </div>
+                    `;
+                }
+
+                // Children
+                allChildren.forEach(child => {
+                    const genderIcon = child.gender === "male" ? "♂" : "♀";
+                    const married = Diplomacy.isMarried(child.id);
+                    const safeChildId = child.id.replace(/'/g, "\\'");
+                    html += `
+                        <div class="admin-child-entry">
+                            <span>${genderIcon} ${child.name}${married ? " ❤" : ""}</span>
+                            <div>
+                                <button class="small-btn danger kill-btn" onclick="Admin.killPerson('${safeId}', '${safeChildId}')">Kill</button>
+                                <button class="small-btn danger" onclick="Admin.deleteChild('${safeId}', '${safeChildId}')">Delete</button>
+                            </div>
+                        </div>
+                    `;
+                });
+
+                if (allChildren.length === 0) {
+                    html += '<div class="empty-state" style="font-size:10px;padding:2px 0">No children</div>';
+                }
+
+                html += `</div>`;
+                return html;
+            })
+            .filter(h => h)
+            .join("");
+
+        list.innerHTML = entries || '<div class="empty-state">No families loaded</div>';
     }
 };
