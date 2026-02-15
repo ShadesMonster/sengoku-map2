@@ -17,6 +17,12 @@ const GameState = {
     history: [],        // event log
     selectedClan: null, // currently selected clan for play
 
+    // Server sync state (not persisted)
+    _serverVersion: 0,
+    _syncInterval: null,
+    _pushPending: false,
+    _pushTimer: null,
+
     // Deadline: Thursday 23:59
     getDeadline() {
         const now = new Date();
@@ -82,7 +88,7 @@ const GameState = {
         this.save();
     },
 
-    // Save to localStorage
+    // Save to localStorage + push to server
     save() {
         const state = {
             stateVersion: this.STATE_VERSION,
@@ -103,6 +109,136 @@ const GameState = {
             selectedClan: this.selectedClan
         };
         localStorage.setItem("shogunate_state", JSON.stringify(state));
+
+        // Push shared state to server (debounced, non-blocking)
+        this._pushToServer();
+    },
+
+    // Shared state — everything synced across all users
+    // Excludes per-user selectedClan and DB-driven clans
+    _getSharedState() {
+        return {
+            week: this.week,
+            phase: this.phase,
+            provinces: this.provinces,
+            orders: this.orders,
+            battles: this.battles,
+            pendingAttacks: this.pendingAttacks,
+            casualties: this.casualties,
+            retreatingArmies: this.retreatingArmies,
+            alliances: this.alliances,
+            allianceRequests: this.allianceRequests,
+            dynamicChildren: this.dynamicChildren,
+            protectedProvinces: this.protectedProvinces,
+            history: this.history,
+        };
+    },
+
+    // Debounced push to server (500ms after last save)
+    _pushToServer() {
+        if (!API.enabled) return;
+        if (this._pushTimer) clearTimeout(this._pushTimer);
+        this._pushTimer = setTimeout(async () => {
+            if (this._pushPending) return;
+            this._pushPending = true;
+            try {
+                const result = await API.saveGameState(this._getSharedState());
+                if (result && result.version) {
+                    this._serverVersion = result.version;
+                }
+            } catch (err) {
+                console.warn("[GameState] Failed to push to server:", err.message);
+            } finally {
+                this._pushPending = false;
+            }
+        }, 500);
+    },
+
+    // Load game state from server (called on startup)
+    async loadFromServer() {
+        if (!API.enabled) return false;
+        try {
+            const data = await API.getGameState();
+            if (!data || !data.state || !data.state.provinces) return false;
+            this._applyServerState(data.state, data.version);
+            console.log("[GameState] Loaded from server, version:", data.version);
+            return true;
+        } catch (err) {
+            console.warn("[GameState] Failed to load from server:", err.message);
+            return false;
+        }
+    },
+
+    // Apply server state while preserving per-user values
+    _applyServerState(serverState, version) {
+        const savedClan = this.selectedClan;
+
+        this.week = serverState.week ?? this.week;
+        this.phase = serverState.phase ?? this.phase;
+        this.provinces = serverState.provinces || this.provinces;
+        this.orders = serverState.orders || [];
+        this.battles = serverState.battles || [];
+        this.pendingAttacks = serverState.pendingAttacks || [];
+        this.casualties = serverState.casualties || {};
+        this.retreatingArmies = serverState.retreatingArmies || [];
+        this.alliances = serverState.alliances || [];
+        this.allianceRequests = serverState.allianceRequests || [];
+        this.dynamicChildren = serverState.dynamicChildren || {};
+        this.protectedProvinces = serverState.protectedProvinces || {};
+        this.history = serverState.history || [];
+
+        // Restore per-user values
+        this.selectedClan = savedClan;
+        this._serverVersion = version;
+
+        // Update localStorage (without re-pushing to server)
+        const state = {
+            stateVersion: this.STATE_VERSION,
+            week: this.week,
+            phase: this.phase,
+            clans: this.clans,
+            provinces: this.provinces,
+            orders: this.orders,
+            battles: this.battles,
+            pendingAttacks: this.pendingAttacks,
+            casualties: this.casualties,
+            retreatingArmies: this.retreatingArmies,
+            alliances: this.alliances,
+            allianceRequests: this.allianceRequests,
+            dynamicChildren: this.dynamicChildren,
+            protectedProvinces: this.protectedProvinces,
+            history: this.history,
+            selectedClan: this.selectedClan,
+        };
+        localStorage.setItem("shogunate_state", JSON.stringify(state));
+    },
+
+    // Start polling for state updates from server
+    startSync(intervalMs) {
+        if (this._syncInterval) clearInterval(this._syncInterval);
+        const ms = intervalMs || 30000;
+        this._syncInterval = setInterval(async () => {
+            if (!API.enabled || this._pushPending) return;
+            try {
+                const data = await API.getGameState();
+                if (!data || !data.version) return;
+                if (data.version > this._serverVersion && data.state && data.state.provinces) {
+                    this._applyServerState(data.state, data.version);
+                    MapRenderer.update();
+                    App.updateUI();
+                    console.log("[GameState] Synced from server, version:", data.version);
+                }
+            } catch (err) {
+                // Silently fail on poll errors
+            }
+        }, ms);
+    },
+
+    stopSync() {
+        if (this._syncInterval) {
+            clearInterval(this._syncInterval);
+            this._syncInterval = null;
+        }
     },
 
     // Add history entry

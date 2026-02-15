@@ -126,7 +126,7 @@ const Admin = {
                     </div>
                     <div class="clan-controls">
                         <label>Rally Cap:</label>
-                        <input type="number" value="${c.rallyCap}" min="100" max="50000"
+                        <input type="number" value="${c.rallyCap}" min="0" max="50000"
                                class="rally-input" data-clan="${c.id}"/>
                         <button class="small-btn" onclick="Admin.updateRallyCap('${c.id}')">Set</button>
                     </div>
@@ -194,24 +194,34 @@ const Admin = {
         // Set ownership
         province.owner = clanId;
 
-        // Place starting army (half the rally cap)
-        const startingTroops = Math.floor(clan.rallyCap / 2);
-        province.armies[clanId] = startingTroops;
-
-        // Set/clear protected status
         if (isImperial) {
+            // Imperial clans: no army, rally cap forced to 0, protected province
+            clan.rallyCap = 0;
+            delete province.armies[clanId];
             GameState.protectedProvinces[provId] = clanId;
+
+            // Save rally cap to DB
+            API.updateClanSettings(clan.dbClanId, { rallyCap: 0 }).catch(() => {});
+
+            GameState.save();
+            MapRenderer.update();
+            this.render();
+
+            GameState.addHistory("system", `Admin spawned ${clan.name} at ${provName} (Imperial — no army, protected)`);
+            Notifications.show(`${clan.name} spawned at ${provName} — Imperial (no army, protected)`, "success");
         } else {
+            // Normal clans: place starting army (half rally cap)
+            const startingTroops = Math.floor(clan.rallyCap / 2);
+            province.armies[clanId] = startingTroops;
             delete GameState.protectedProvinces[provId];
+
+            GameState.save();
+            MapRenderer.update();
+            this.render();
+
+            GameState.addHistory("system", `Admin spawned ${clan.name} at ${provName} with ${startingTroops} troops`);
+            Notifications.show(`${clan.name} spawned at ${provName} with ${startingTroops} troops`, "success");
         }
-
-        GameState.save();
-        MapRenderer.update();
-        this.render();
-
-        const imperialMsg = isImperial ? " (Imperial — protected)" : "";
-        GameState.addHistory("system", `Admin spawned ${clan.name} at ${provName} with ${startingTroops} troops${imperialMsg}`);
-        Notifications.show(`${clan.name} spawned at ${provName} with ${startingTroops} troops${imperialMsg}`, "success");
     },
 
     despawnClan(clanId) {
@@ -435,7 +445,7 @@ const Admin = {
         if (!input) return;
 
         const newCap = parseInt(input.value);
-        if (isNaN(newCap) || newCap < 100) {
+        if (isNaN(newCap) || newCap < 0) {
             Notifications.show("Invalid rally cap", "error");
             return;
         }
@@ -662,6 +672,52 @@ const Admin = {
         if (ClanPanel.currentClan === clanId) ClanPanel.render(clanId);
     },
 
+    async renameChild(clanId, childId) {
+        const person = Diplomacy.getPerson(childId);
+        if (!person) return;
+
+        const newName = prompt(`Rename "${person.name}" to:`, person.name);
+        if (!newName || newName.trim() === "" || newName.trim() === person.name) return;
+
+        const trimmed = newName.trim();
+
+        // Update in DB if it's a DB child
+        if (person.dbId) {
+            try {
+                await API.updateFamilyMember(person.dbId, { character_name: trimmed });
+            } catch (err) {
+                Notifications.show("Failed to rename: " + err.message, "error");
+                return;
+            }
+        }
+
+        // Update in local CLAN_FAMILIES
+        const family = CLAN_FAMILIES[clanId];
+        if (family) {
+            // Check if it's the leader
+            if (family.leader && family.leader.id === childId) {
+                family.leader.name = trimmed;
+            } else {
+                const child = family.children.find(c => c.id === childId);
+                if (child) child.name = trimmed;
+            }
+        }
+
+        // Also update dynamicChildren if present
+        if (GameState.dynamicChildren[clanId]) {
+            const dyn = GameState.dynamicChildren[clanId].find(c => c.id === childId);
+            if (dyn) dyn.name = trimmed;
+        }
+
+        GameState.save();
+        const clanName = GameState.getClan(clanId)?.name || clanId;
+        GameState.addHistory("system", `Admin renamed ${person.name} to ${trimmed} in ${clanName}`);
+        Notifications.show(`Renamed to ${trimmed}`, "info");
+
+        this.renderFamilyList();
+        if (ClanPanel.currentClan === clanId) ClanPanel.render(clanId);
+    },
+
     renderFamilyList() {
         const list = document.getElementById("admin-family-list");
         const clans = Object.keys(GameState.clans);
@@ -701,7 +757,10 @@ const Admin = {
                     html += `
                         <div class="admin-child-entry daimyo-entry">
                             <span>&#x1F451; ${leader.name}${leader.title ? ' — ' + leader.title : ''}${married ? " ❤" : ""}</span>
-                            <button class="small-btn danger kill-btn" onclick="Admin.killPerson('${safeId}', '${leader.id}')">Kill</button>
+                            <div>
+                                <button class="small-btn" onclick="Admin.renameChild('${safeId}', '${leader.id}')">Rename</button>
+                                <button class="small-btn danger kill-btn" onclick="Admin.killPerson('${safeId}', '${leader.id}')">Kill</button>
+                            </div>
                         </div>
                     `;
                 }
@@ -715,6 +774,7 @@ const Admin = {
                         <div class="admin-child-entry">
                             <span>${genderIcon} ${child.name}${married ? " ❤" : ""}</span>
                             <div>
+                                <button class="small-btn" onclick="Admin.renameChild('${safeId}', '${safeChildId}')">Rename</button>
                                 <button class="small-btn danger kill-btn" onclick="Admin.killPerson('${safeId}', '${safeChildId}')">Kill</button>
                                 <button class="small-btn danger" onclick="Admin.deleteChild('${safeId}', '${safeChildId}')">Delete</button>
                             </div>

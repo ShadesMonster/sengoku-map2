@@ -213,6 +213,16 @@ const API = {
         return this.request("marriages", "PUT", { id, action });
     },
 
+    // ---- Game State (shared map state sync) ----
+
+    async getGameState() {
+        return this.request("gamestate");
+    },
+
+    async saveGameState(state) {
+        return this.request("gamestate", "PUT", { state });
+    },
+
     // ---- Avatars (proxy) ----
 
     // Get avatar URL for proxy mode (avoids CORS)

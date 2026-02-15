@@ -51,6 +51,16 @@ const App = {
         // Load families from database (leaders, children for marriage system)
         await API.loadFamiliesFromDB();
 
+        // Load shared game state from server (overrides localStorage with latest)
+        const serverLoaded = await GameState.loadFromServer();
+        if (serverLoaded) {
+            MapRenderer.update();
+            this.updateUI();
+        }
+
+        // Start polling for state updates from other users (every 30s)
+        GameState.startSync();
+
         // Start countdown timer
         this.startCountdown();
 
