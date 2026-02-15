@@ -1163,6 +1163,36 @@
     font-style: italic;
 }
 
+.daimyo-info {
+    margin-top: 2px;
+}
+
+.daimyo-name {
+    font-size: 13px;
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+.daimyo-username {
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+.daimyo-last-seen {
+    font-size: 11px;
+    color: var(--text-muted);
+    font-style: italic;
+}
+
+.clan-description {
+    margin-top: 8px;
+    font-size: 12px;
+    color: var(--text-secondary);
+    line-height: 1.4;
+    border-top: 1px solid var(--border);
+    padding-top: 8px;
+}
+
 /* === Family Tree === */
 .family-tree {
     display: flex;

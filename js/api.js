@@ -39,6 +39,44 @@ const API = {
         return this.request("clans");
     },
 
+    // Fetch clans from DB and merge daimyo/description into GameState
+    async loadClansFromDB() {
+        if (!this.enabled) return;
+        try {
+            const data = await this.getClans();
+            if (!data || !data.clans) return;
+
+            data.clans.forEach(dbClan => {
+                // Match DB clan to frontend clan by name
+                const clanId = dbClan.name.toLowerCase().trim();
+                const clan = GameState.clans[clanId];
+                if (!clan) return;
+
+                // Merge DB info into the clan object
+                clan.description = dbClan.description || null;
+                clan.daimyo = dbClan.daimyo || null;
+                clan.dbClanId = dbClan.clanId;
+
+                // Update CLAN_FAMILIES leader with real daimyo info
+                if (dbClan.daimyo && CLAN_FAMILIES[clanId]) {
+                    const leader = CLAN_FAMILIES[clanId].leader;
+                    if (dbClan.daimyo.robloxId) {
+                        leader.robloxId = dbClan.daimyo.robloxId;
+                    }
+                    if (dbClan.daimyo.rpName) {
+                        leader.name = dbClan.daimyo.rpName;
+                    }
+                }
+            });
+
+            // Re-fetch avatars now that roblox IDs may have changed
+            RobloxAvatar.fetchAll();
+            console.log("[API] Clan data merged from database");
+        } catch (err) {
+            console.warn("[API] Failed to load clans from DB:", err);
+        }
+    },
+
     // ---- Families ----
 
     // Fetch all clan families from database

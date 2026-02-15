@@ -21,7 +21,7 @@ function closeAllOverlays(exceptId) {
 const App = {
     countdownInterval: null,
 
-    init() {
+    async init() {
         // Initialize game state
         GameState.init();
 
@@ -43,7 +43,10 @@ const App = {
         this.updateUI();
 
         // Initialize auth (Discord login - sets selectedClan from account)
-        Auth.init();
+        await Auth.init();
+
+        // Load clan data from database (daimyo info, descriptions)
+        await API.loadClansFromDB();
 
         // Start countdown timer
         this.startCountdown();

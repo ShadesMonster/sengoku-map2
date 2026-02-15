@@ -71,6 +71,27 @@ const Dashboard = {
             </div>
         `;
 
+        // Build daimyo info from database if available
+        let daimyoHtml = "";
+        if (clan.daimyo) {
+            const d = clan.daimyo;
+            const lastSeenStr = d.lastSeen
+                ? new Date(d.lastSeen * 1000).toLocaleDateString()
+                : "Unknown";
+            daimyoHtml = `
+                <div class="daimyo-info">
+                    <div class="daimyo-name">${d.rpName || d.username || "Unknown"}</div>
+                    ${d.rpName && d.username ? `<div class="daimyo-username">@${d.username}</div>` : ""}
+                    <div class="daimyo-last-seen">Last seen: ${lastSeenStr}</div>
+                </div>
+            `;
+        } else if (family) {
+            daimyoHtml = `
+                <div class="leader-name">${family.leader.name}</div>
+                <div class="leader-title">${family.leader.title}</div>
+            `;
+        }
+
         document.getElementById("dash-clan-info").innerHTML = `
             ${clanBrowser}
             <div class="dash-header" style="border-color: ${clan.color}">
@@ -78,10 +99,10 @@ const Dashboard = {
                     ${family ? RobloxAvatar.img(family.leader.robloxId, 52, "leader-avatar") : ""}
                     <div class="clan-leader-info">
                         <h3 style="color: ${clan.color}">${clan.japaneseName} ${clan.name}</h3>
-                        ${family ? `<div class="leader-name">${family.leader.name}</div>
-                        <div class="leader-title">${family.leader.title}</div>` : ""}
+                        ${daimyoHtml}
                     </div>
                 </div>
+                ${clan.description ? `<div class="clan-description">${clan.description}</div>` : ""}
             </div>
         `;
 
