@@ -201,6 +201,7 @@ const Diplomacy = {
         const province = GameState.provinces[provinceId];
         if (!province) return { success: false, error: "Invalid province" };
         if (province.owner !== fromClanId) return { success: false, error: "You don't own this province" };
+        if (GameState.isProtectedProvince(provinceId)) return { success: false, error: "Cannot gift Imperial territory" };
 
         province.owner = toClanId;
 

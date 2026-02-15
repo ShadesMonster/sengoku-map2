@@ -285,7 +285,13 @@ const BattleSystem = {
             for (const [clanId, troops] of Object.entries(winnerSurviving)) {
                 province.armies[clanId] = (province.armies[clanId] || 0) + troops;
             }
-            province.owner = winners.clans[0];
+
+            // Protected provinces: ownership stays with permanent owner
+            if (GameState.isProtectedProvince(battle.province)) {
+                province.owner = GameState.getProtectedOwner(battle.province);
+            } else {
+                province.owner = winners.clans[0];
+            }
 
             this._processPendingAttacks(battle.province);
 
@@ -293,9 +299,12 @@ const BattleSystem = {
             const retreatMsg = totalLoserSurvivors > 0
                 ? ` ${loserNames.join(", ")} retreating with ${totalLoserSurvivors} survivors.`
                 : ` ${loserNames.join(", ")} routed.`;
+            const protectedMsg = GameState.isProtectedProvince(battle.province)
+                ? ` (Imperial territory — ownership unchanged)`
+                : "";
             GameState.addHistory("battle",
                 `${this.getBattleIcon(battle.terrain)} ${battle.battleType} at ${provData.name}: ` +
-                `${winnerNames.join(" + ")} victorious!${retreatMsg} ` +
+                `${winnerNames.join(" + ")} victorious!${retreatMsg}${protectedMsg} ` +
                 `Winner casualties: ${totalWinnerCasualties}, Loser casualties: ${totalLoserCasualties}`);
         }
 

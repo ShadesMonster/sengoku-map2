@@ -123,6 +123,20 @@ const Admin = {
                                class="rally-input" data-clan="${c.id}"/>
                         <button class="small-btn" onclick="Admin.updateRallyCap('${c.id}')">Set</button>
                     </div>
+                    <div class="clan-controls">
+                        <label class="imperial-label">
+                            <input type="checkbox" class="imperial-check" data-clan="${c.id}"
+                                ${c.castleProvince && GameState.protectedProvinces[c.castleProvince] === c.id ? 'checked' : ''}/>
+                            Imperial (can't be conquered)
+                        </label>
+                    </div>
+                    <div class="clan-controls">
+                        <button class="small-btn spawn-btn" onclick="Admin.spawnClan('${c.id}')"
+                            ${!c.castleProvince ? 'disabled title="Set a castle first"' : ''}>
+                            Spawn at ${c.castleProvince ? (PROVINCE_MAP[c.castleProvince]?.name || c.castleProvince) : '—'}
+                        </button>
+                        <button class="small-btn danger" onclick="Admin.despawnClan('${c.id}')">Despawn</button>
+                    </div>
                 </div>
             `;
         }).join("");
@@ -153,6 +167,69 @@ const Admin = {
             ? PROVINCE_MAP[provinceId].name : "None";
         Notifications.show(`${clan.name} castle set to ${provName}`, "info");
         GameState.addHistory("system", `Admin set ${clan.name} castle to ${provName}`);
+    },
+
+    spawnClan(clanId) {
+        const clan = GameState.getClan(clanId);
+        if (!clan || !clan.castleProvince) {
+            Notifications.show("Set a castle province first", "error");
+            return;
+        }
+
+        const provId = clan.castleProvince;
+        const province = GameState.provinces[provId];
+        const provName = PROVINCE_MAP[provId]?.name || provId;
+
+        // Check imperial checkbox
+        const imperialCheck = document.querySelector(`.imperial-check[data-clan="${clanId}"]`);
+        const isImperial = imperialCheck && imperialCheck.checked;
+
+        // Set ownership
+        province.owner = clanId;
+
+        // Place starting army (half the rally cap)
+        const startingTroops = Math.floor(clan.rallyCap / 2);
+        province.armies[clanId] = startingTroops;
+
+        // Set/clear protected status
+        if (isImperial) {
+            GameState.protectedProvinces[provId] = clanId;
+        } else {
+            delete GameState.protectedProvinces[provId];
+        }
+
+        GameState.save();
+        MapRenderer.update();
+        this.render();
+
+        const imperialMsg = isImperial ? " (Imperial — protected)" : "";
+        GameState.addHistory("system", `Admin spawned ${clan.name} at ${provName} with ${startingTroops} troops${imperialMsg}`);
+        Notifications.show(`${clan.name} spawned at ${provName} with ${startingTroops} troops${imperialMsg}`, "success");
+    },
+
+    despawnClan(clanId) {
+        const clan = GameState.getClan(clanId);
+        if (!clan) return;
+
+        if (!confirm(`Remove ${clan.name} from all provinces and clear their armies?`)) return;
+
+        // Remove ownership of all provinces and clear protected status
+        Object.entries(GameState.provinces).forEach(([provId, prov]) => {
+            if (prov.owner === clanId) {
+                prov.owner = null;
+            }
+            delete prov.armies[clanId];
+            if (GameState.protectedProvinces[provId] === clanId) {
+                delete GameState.protectedProvinces[provId];
+            }
+        });
+
+        GameState.save();
+        MapRenderer.update();
+        this.render();
+
+        GameState.addHistory("system", `Admin despawned ${clan.name} — removed from all provinces`);
+        Notifications.show(`${clan.name} removed from all provinces`, "warning");
     },
 
     renderBattleList() {
@@ -299,6 +376,12 @@ const Admin = {
 
         const province = GameState.provinces[provId];
         if (!province) return;
+
+        // Warn if trying to change a protected province's owner
+        if (GameState.isProtectedProvince(provId) && ownerId !== GameState.getProtectedOwner(provId)) {
+            if (!confirm("This is an Imperial (protected) province. Change owner anyway? This will remove protection.")) return;
+            delete GameState.protectedProvinces[provId];
+        }
 
         province.owner = ownerId || null;
         GameState.save();

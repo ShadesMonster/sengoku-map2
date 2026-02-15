@@ -13,6 +13,7 @@ const GameState = {
     alliances: [],      // { clan1, clan2 }
     allianceRequests: [],// { from, to, timestamp }
     dynamicChildren: {},// clanId -> [{ id, name, gender, robloxId }] admin-added children
+    protectedProvinces: {}, // provinceId -> clanId — ownership can't change
     history: [],        // event log
     selectedClan: null, // currently selected clan for play
 
@@ -66,6 +67,7 @@ const GameState = {
         this.alliances = [];
         this.allianceRequests = [];
         this.dynamicChildren = {};
+        this.protectedProvinces = {};
         this.history = [];
 
         // Initialize provinces (structure only - ownership set by admin)
@@ -96,6 +98,7 @@ const GameState = {
             alliances: this.alliances,
             allianceRequests: this.allianceRequests,
             dynamicChildren: this.dynamicChildren,
+            protectedProvinces: this.protectedProvinces,
             history: this.history,
             selectedClan: this.selectedClan
         };
@@ -178,6 +181,16 @@ const GameState = {
             leader: staticFamily.leader,
             children: [...staticFamily.children, ...dynamic]
         };
+    },
+
+    // Check if a province is protected (Imperial Court, etc.)
+    isProtectedProvince(provinceId) {
+        return !!this.protectedProvinces[provinceId];
+    },
+
+    // Get the permanent owner of a protected province
+    getProtectedOwner(provinceId) {
+        return this.protectedProvinces[provinceId] || null;
     },
 
     // Reset game

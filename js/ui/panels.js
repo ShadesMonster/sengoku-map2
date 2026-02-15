@@ -35,9 +35,12 @@ const Panels = {
         const terrain = TERRAIN_CONFIG[prov.terrain];
         const ownerClan = state.owner ? GameState.getClan(state.owner) : null;
         const isCapital = ownerClan && ownerClan.castleProvince === provinceId;
-        document.getElementById("panel-terrain-value").textContent = isCapital
+        const isProtected = GameState.isProtectedProvince(provinceId);
+        let terrainText = isCapital
             ? `${CASTLE_SIEGE.icon} Castle Siege`
             : `${terrain.icon} ${terrain.battleType}`;
+        if (isProtected) terrainText += " (Imperial)";
+        document.getElementById("panel-terrain-value").textContent = terrainText;
 
         // Owner
         const ownerSpan = document.getElementById("panel-owner-value");

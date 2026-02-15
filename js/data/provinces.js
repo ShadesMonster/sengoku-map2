@@ -119,3 +119,8 @@ const TERRAIN_CONFIG = {
 
 // Castle Siege config (triggered when attacking a clan's capital province)
 const CASTLE_SIEGE = { icon: "\u{1F3EF}", name: "Castle Siege", color: "#8B4513" };
+
+// Protected provinces — ownership can never change from its permanent owner.
+// Other clans can move armies in and fight battles there, but cannot claim it.
+// The permanent owner is set when spawning the clan (e.g. Imperial Court at Yamashiro).
+// GameState.protectedProvinces = { provinceId: clanId } — stored in state.

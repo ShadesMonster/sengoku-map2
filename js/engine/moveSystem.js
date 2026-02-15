@@ -214,12 +214,18 @@ const MoveSystem = {
                 province.armies[cid] = (province.armies[cid] || 0) + arrivingTroops[cid];
             });
 
-            // If province is unowned, first arriving clan claims it
+            // If province is unowned, first arriving clan claims it (unless protected)
             if (!province.owner && arrivingClans.length > 0) {
-                province.owner = arrivingClans[0];
-                const clan = GameState.getClan(arrivingClans[0]);
-                GameState.addHistory("move",
-                    `${clan.name} claims uncontrolled ${provData.name}`);
+                if (GameState.isProtectedProvince(provId)) {
+                    province.owner = GameState.getProtectedOwner(provId);
+                    GameState.addHistory("move",
+                        `${GameState.getClan(arrivingClans[0]).name} occupies imperial territory ${provData.name}`);
+                } else {
+                    province.owner = arrivingClans[0];
+                    const clan = GameState.getClan(arrivingClans[0]);
+                    GameState.addHistory("move",
+                        `${clan.name} claims uncontrolled ${provData.name}`);
+                }
             }
             return { battles: 0 };
         }
@@ -256,8 +262,12 @@ const MoveSystem = {
                     !block.clans.some(c => c === province.owner || GameState.areAllied(c, province.owner))
                 );
                 if (hostileBlocks.length === 1) {
-                    // Single hostile block takes it unopposed
-                    province.owner = hostileBlocks[0].clans[0];
+                    // Single hostile block takes it unopposed (unless protected)
+                    if (GameState.isProtectedProvince(provId)) {
+                        province.owner = GameState.getProtectedOwner(provId);
+                    } else {
+                        province.owner = hostileBlocks[0].clans[0];
+                    }
                     GameState.addHistory("move",
                         `${GameState.getClan(hostileBlocks[0].clans[0]).name} takes undefended ${provData.name}`);
                     return { battles: 0 };
@@ -318,7 +328,11 @@ const MoveSystem = {
 
         // --- CASE 5: Single attacker, no defender (uncontrolled) ---
         if (attackerBlocks.length === 1 && !defenderBlock) {
-            province.owner = attackerBlocks[0].clans[0];
+            if (GameState.isProtectedProvince(provId)) {
+                province.owner = GameState.getProtectedOwner(provId);
+            } else {
+                province.owner = attackerBlocks[0].clans[0];
+            }
             GameState.addHistory("move",
                 `${GameState.getClan(attackerBlocks[0].clans[0]).name} claims ${provData.name}`);
             return { battles: 0 };

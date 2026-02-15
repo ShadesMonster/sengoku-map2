@@ -695,6 +695,10 @@
 .small-btn.cancel { border-color: var(--accent-red); color: var(--accent-red); }
 .small-btn.uncommit { border-color: #ff9900; color: #ff9900; }
 .small-btn.danger { border-color: var(--accent-red); color: var(--accent-red); }
+.small-btn.spawn-btn { border-color: var(--accent-green); color: var(--accent-green); flex: 1; }
+.small-btn.spawn-btn:disabled { border-color: #555; color: #555; cursor: not-allowed; }
+.imperial-label { font-size: 11px; color: #d4af37; display: flex; align-items: center; gap: 4px; cursor: pointer; }
+.imperial-check { accent-color: #d4af37; }
 
 /* Order entries */
 .orders-section {
