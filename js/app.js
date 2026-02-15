@@ -1,5 +1,5 @@
 // Main Application - Initialization and coordination
-const OVERLAY_PANEL_IDS = ["dashboard-panel", "history-panel", "admin-panel", "faq-panel"];
+const OVERLAY_PANEL_IDS = ["history-panel", "admin-panel", "faq-panel"];
 
 function closeAllOverlays(exceptId) {
     OVERLAY_PANEL_IDS.forEach(id => {
@@ -34,7 +34,6 @@ const App = {
         MapInteraction.init();
         Panels.init();
         ClanPanel.init();
-        Dashboard.init();
         HistoryLog.init();
         Admin.init();
         FAQ.init();

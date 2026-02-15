@@ -85,14 +85,14 @@ const FAQ = {
 
             <div class="faq-section">
                 <h3>Marriage Alliances</h3>
-                <p>Open the <strong>Clan Dashboard</strong> to propose marriages. Both clans must agree.</p>
+                <p>Click a clan on the map to view their family. Select a character to propose marriages. Both clans must agree.</p>
                 <p>Allied clans can <strong>reinforce</strong> each other in battle and share territory for retreats.</p>
-                <p>Alliances can be dissolved at any time from the dashboard.</p>
+                <p>Alliances can be dissolved from the clan panel.</p>
             </div>
 
             <div class="faq-section">
                 <h3>Map Legend</h3>
-                <p>Bottom-left shows all clans with their province count and ashigaru total. Click the eye icon to view any clan's dashboard.</p>
+                <p>Bottom-left shows all clans with their province count and ashigaru total. Click a clan on the map to view their details.</p>
             </div>
         `;
     }
