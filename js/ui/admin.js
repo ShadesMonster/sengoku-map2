@@ -107,6 +107,13 @@ const Admin = {
                         <span>${provinces} provinces, ${troops} troops</span>
                     </div>
                     <div class="clan-controls">
+                        <label>Display:</label>
+                        <input type="color" value="${c.color}" class="clan-color-input" data-clan="${c.id}"/>
+                        <input type="text" value="${c.japaneseName}" placeholder="Japanese name"
+                               class="clan-jpname-input" data-clan="${c.id}" style="width:70px"/>
+                        <button class="small-btn" onclick="Admin.updateClanDisplay('${c.id}')">Save</button>
+                    </div>
+                    <div class="clan-controls">
                         <label>Castle:</label>
                         <select class="castle-select" data-clan="${c.id}" data-dbid="${c.dbClanId}">
                             <option value="">None</option>
@@ -446,6 +453,38 @@ const Admin = {
         clan.rallyCap = newCap;
         GameState.save();
         Notifications.show(`Rally cap updated for ${clan.name}`, "info");
+    },
+
+    async updateClanDisplay(clanId) {
+        const colorInput = document.querySelector(`.clan-color-input[data-clan="${clanId}"]`);
+        const jpNameInput = document.querySelector(`.clan-jpname-input[data-clan="${clanId}"]`);
+        if (!colorInput || !jpNameInput) return;
+
+        const clan = GameState.getClan(clanId);
+        const newColor = colorInput.value;
+        const newJpName = jpNameInput.value.trim();
+
+        if (!newJpName) {
+            Notifications.show("Japanese name cannot be empty", "error");
+            return;
+        }
+
+        try {
+            await API.updateClanSettings(clan.dbClanId, {
+                color: newColor,
+                japaneseName: newJpName,
+            });
+        } catch (err) {
+            Notifications.show("Failed to save: " + err.message, "error");
+            return;
+        }
+
+        clan.color = newColor;
+        clan.japaneseName = newJpName;
+        GameState.save();
+        MapRenderer.update();
+        this.renderClanList();
+        Notifications.show(`${clan.name} display updated`, "info");
     },
 
     resolveBattle(battleId, winningSide) {

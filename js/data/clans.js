@@ -1,16 +1,18 @@
 // Default color/name lookup for known Sengoku clans
 // Used as fallback when DB doesn't have color or japanese_name set yet
 const CLAN_DEFAULTS = {
-    oda:        { japaneseName: "織田",     color: "#cc3333" },
-    takeda:     { japaneseName: "武田",     color: "#4444cc" },
-    uesugi:     { japaneseName: "上杉",     color: "#22aa44" },
-    tokugawa:   { japaneseName: "徳川",     color: "#ddaa00" },
-    mori:       { japaneseName: "毛利",     color: "#aa44aa" },
-    shimazu:    { japaneseName: "島津",     color: "#ff6600" },
-    hojo:       { japaneseName: "北条",     color: "#0088cc" },
-    chosokabe:  { japaneseName: "長宗我部", color: "#44ccaa" },
-    date:       { japaneseName: "伊達",     color: "#cc44cc" },
-    imagawa:    { japaneseName: "今川",     color: "#88cc44" },
+    oda:              { japaneseName: "織田",     color: "#cc3333" },
+    takeda:           { japaneseName: "武田",     color: "#4444cc" },
+    uesugi:           { japaneseName: "上杉",     color: "#22aa44" },
+    tokugawa:         { japaneseName: "徳川",     color: "#ddaa00" },
+    mori:             { japaneseName: "毛利",     color: "#aa44aa" },
+    shimazu:          { japaneseName: "島津",     color: "#ff6600" },
+    hojo:             { japaneseName: "北条",     color: "#0088cc" },
+    chosokabe:        { japaneseName: "長宗我部", color: "#44ccaa" },
+    date:             { japaneseName: "伊達",     color: "#cc44cc" },
+    imagawa:          { japaneseName: "今川",     color: "#88cc44" },
+    "imperial court": { japaneseName: "朝廷",     color: "#d4af37" },
+    soma:             { japaneseName: "相馬",     color: "#cc8844" },
 };
 
 // Auto-assign palette for clans not in the defaults above
@@ -98,5 +100,13 @@ const CLAN_FAMILIES = {
             { id: "imagawa_ujizane", name: "Imagawa Ujizane", gender: "male", robloxId: DEFAULT_ROBLOX_ID },
             { id: "imagawa_reishoin", name: "Reishoin", gender: "female", robloxId: DEFAULT_ROBLOX_ID }
         ]
+    },
+    "imperial court": {
+        leader: { id: "imperial_emperor", name: "Emperor", title: "Son of Heaven", gender: "male", robloxId: DEFAULT_ROBLOX_ID },
+        children: []
+    },
+    soma: {
+        leader: { id: "soma_yoshitane", name: "Soma Yoshitane", title: "Lord of Soma", gender: "male", robloxId: DEFAULT_ROBLOX_ID },
+        children: []
     }
 };

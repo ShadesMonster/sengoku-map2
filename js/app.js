@@ -48,6 +48,9 @@ const App = {
         // Load clan data from database (daimyo info, descriptions)
         await API.loadClansFromDB();
 
+        // Load families from database (leaders, children for marriage system)
+        await API.loadFamiliesFromDB();
+
         // Start countdown timer
         this.startCountdown();
 

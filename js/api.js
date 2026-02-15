@@ -64,13 +64,6 @@ const API = {
                     daimyo: dbClan.daimyo || null,
                     dbClanId: dbClan.clanId,
                 };
-
-                // Update CLAN_FAMILIES leader with real daimyo info
-                if (dbClan.daimyo && CLAN_FAMILIES[clanId]) {
-                    const leader = CLAN_FAMILIES[clanId].leader;
-                    if (dbClan.daimyo.robloxId) leader.robloxId = dbClan.daimyo.robloxId;
-                    if (dbClan.daimyo.rpName) leader.name = dbClan.daimyo.rpName;
-                }
             });
 
             GameState.save();
@@ -85,6 +78,83 @@ const API = {
     // Update clan map settings (castle, color, etc.) via admin
     async updateClanSettings(dbClanId, settings) {
         return this.request(`clans/${dbClanId}/settings`, "PUT", settings);
+    },
+
+    // Load families from DB and inject into CLAN_FAMILIES so existing
+    // diplomacy/marriage/ClanPanel code works without changes
+    async loadFamiliesFromDB() {
+        if (!this.enabled) return;
+        try {
+            const data = await this.getFamilies();
+            if (!data || !data.families) return;
+
+            for (const [clanKey, fam] of Object.entries(data.families)) {
+                // Build leader object matching the expected format
+                const existing = CLAN_FAMILIES[clanKey];
+                let leader;
+
+                if (fam.leader) {
+                    leader = {
+                        id: existing?.leader?.id || `${clanKey.replace(/\s+/g, '_')}_daimyo`,
+                        name: fam.leader.name || (existing?.leader?.name || 'Daimyo'),
+                        title: fam.leader.title || (existing?.leader?.title || ''),
+                        gender: existing?.leader?.gender || 'male',
+                        robloxId: fam.leader.robloxId || (existing?.leader?.robloxId || DEFAULT_ROBLOX_ID),
+                    };
+                } else if (existing?.leader) {
+                    leader = existing.leader;
+                } else {
+                    // No leader from DB or hardcoded — create a placeholder
+                    const clan = GameState.clans[clanKey];
+                    leader = {
+                        id: `${clanKey.replace(/\s+/g, '_')}_daimyo`,
+                        name: clan ? clan.name + ' Daimyo' : 'Daimyo',
+                        title: '',
+                        gender: 'male',
+                        robloxId: DEFAULT_ROBLOX_ID,
+                    };
+                }
+
+                // Build children — DB children first, then keep hardcoded ones that aren't duplicated
+                const dbChildren = (fam.children || []).map(c => ({
+                    id: c.id, // e.g. "db_123"
+                    name: c.name,
+                    gender: c.gender,
+                    robloxId: c.robloxId || DEFAULT_ROBLOX_ID,
+                    dbId: c.dbId,
+                }));
+
+                // Merge: use DB children; if none from DB, fall back to hardcoded
+                const children = dbChildren.length > 0
+                    ? dbChildren
+                    : (existing?.children || []);
+
+                CLAN_FAMILIES[clanKey] = { leader, children };
+            }
+
+            // Also ensure any clan in GameState.clans that has no CLAN_FAMILIES entry
+            // gets a placeholder so the family panel shows up
+            for (const clanKey of Object.keys(GameState.clans)) {
+                if (!CLAN_FAMILIES[clanKey]) {
+                    const clan = GameState.clans[clanKey];
+                    CLAN_FAMILIES[clanKey] = {
+                        leader: {
+                            id: `${clanKey.replace(/\s+/g, '_')}_daimyo`,
+                            name: clan.daimyo?.rpName || clan.name + ' Daimyo',
+                            title: '',
+                            gender: 'male',
+                            robloxId: clan.daimyo?.robloxId || DEFAULT_ROBLOX_ID,
+                        },
+                        children: [],
+                    };
+                }
+            }
+
+            RobloxAvatar.fetchAll();
+            console.log("[API] Families loaded from database:", Object.keys(data.families).length);
+        } catch (err) {
+            console.warn("[API] Failed to load families from DB:", err);
+        }
     },
 
     // ---- Families ----
