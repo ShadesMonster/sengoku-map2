@@ -185,6 +185,11 @@ const MapInteraction = {
     handleMoveTarget(toProvinceId) {
         const clanId = GameState.selectedClan;
         if (!clanId) return;
+        if (!Auth.canMoveArmies(clanId)) {
+            Notifications.show("No map access. Ask your Daimyo to use /delegate in Discord.", "error");
+            this.cancelMoveMode();
+            return;
+        }
 
         const available = ArmySystem.getArmyInProvince(clanId, this.moveFrom);
         const committed = MoveSystem.getOrdersFrom(clanId, this.moveFrom)

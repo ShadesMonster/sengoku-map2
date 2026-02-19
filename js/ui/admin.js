@@ -867,6 +867,42 @@ const Admin = {
         if (ClanPanel.currentClan === clanId) ClanPanel.render(clanId);
     },
 
+    resurrectPerson(clanId, personId) {
+        const deceased = GameState.deceasedMembers[clanId] || [];
+        const person = deceased.find(d => d.id === personId);
+        if (!person) return;
+
+        if (!confirm(`Resurrect ${person.name}? They will be returned to the family as a living member.`)) return;
+
+        // Remove from deceased
+        GameState.deceasedMembers[clanId] = deceased.filter(d => d.id !== personId);
+
+        // Add back as a dynamic child (living)
+        if (!GameState.dynamicChildren[clanId]) GameState.dynamicChildren[clanId] = [];
+        GameState.dynamicChildren[clanId].push({
+            id: person.id,
+            name: person.name,
+            gender: person.gender,
+            robloxId: person.robloxId || DEFAULT_ROBLOX_ID,
+            parentId: person.parentId || null,
+        });
+
+        // Re-add to DB if possible
+        if (person.robloxId && person.robloxId !== DEFAULT_ROBLOX_ID) {
+            API.addFamilyMember(clanId, person.name, "child", person.gender, person.robloxId).catch(err =>
+                console.warn("Failed to re-add to DB:", err)
+            );
+        }
+
+        const clanName = GameState.getClan(clanId)?.name || clanId;
+        GameState.addHistory("system", `${person.name} of ${clanName} has been resurrected.`);
+        Notifications.show(`${person.name} has been resurrected.`, "success");
+
+        GameState.save();
+        this.renderFamilyList();
+        if (ClanPanel.currentClan === clanId) ClanPanel.render(clanId);
+    },
+
     async renameChild(clanId, childId) {
         const person = Diplomacy.getPerson(childId);
         if (!person) return;
@@ -979,6 +1015,24 @@ const Admin = {
 
                 if (allChildren.length === 0) {
                     html += '<div class="empty-state" style="font-size:10px;padding:2px 0">No children</div>';
+                }
+
+                // Deceased members
+                const deceased = GameState.deceasedMembers[clanId] || [];
+                if (deceased.length > 0) {
+                    html += '<div style="margin-top:4px;font-size:10px;color:var(--text-muted)">Deceased:</div>';
+                    deceased.forEach(d => {
+                        const genderIcon = d.gender === "male" ? "♂" : "♀";
+                        const safeDecId = d.id.replace(/'/g, "\\'");
+                        html += `
+                            <div class="admin-child-entry" style="opacity:0.6;font-style:italic">
+                                <span>${genderIcon} ${d.name} +</span>
+                                <div>
+                                    <button class="small-btn" onclick="Admin.resurrectPerson('${safeId}', '${safeDecId}')">Resurrect</button>
+                                </div>
+                            </div>
+                        `;
+                    });
                 }
 
                 html += `</div>`;

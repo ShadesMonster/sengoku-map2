@@ -129,6 +129,12 @@ const Panels = {
             return;
         }
 
+        // Permission check — only daimyo, delegates, and admin can act
+        if (!Auth.canMoveArmies(clanId)) {
+            container.innerHTML = '<div class="empty-state">No map access. Ask your Daimyo to use /delegate in Discord.</div>';
+            return;
+        }
+
         const state = GameState.provinces[provinceId];
         const clan = GameState.getClan(clanId);
         const hasTroops = ArmySystem.getArmyInProvince(clanId, provinceId) > 0;
@@ -608,13 +614,11 @@ const ClanPanel = {
         if (!family) return [];
 
         const allMembers = this._getAllFamilyMembers(clanId);
-        const hasAnyParentIds = allMembers.some(m => m.parentId);
 
         return allMembers.filter(c => {
             if (c.parentId) return c.parentId === personId;
-            // No parentId set on anyone — default: leader owns all children
-            if (!hasAnyParentIds) return personId === family.leader.id;
-            return false;
+            // No explicit parentId — belongs to the leader
+            return personId === family.leader.id;
         });
     },
 
@@ -626,17 +630,15 @@ const ClanPanel = {
         const person = allMembers.find(c => c.id === personId);
 
         if (!person) {
-            // If this is the leader, they have no siblings
             if (family.leader.id === personId) return [];
             return [];
         }
 
-        const hasAnyParentIds = allMembers.some(m => m.parentId);
-
         return allMembers.filter(c => {
             if (c.id === personId) return false;
+            // Both have explicit parents — siblings if same parent
             if (c.parentId && person.parentId) return c.parentId === person.parentId;
-            if (!hasAnyParentIds) return true; // all are siblings under the leader
+            // Both have no parent — siblings under the leader
             if (!c.parentId && !person.parentId) return true;
             return false;
         });
