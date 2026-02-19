@@ -23,6 +23,7 @@ const GameState = {
     _syncInterval: null,
     _pushPending: false,
     _pushTimer: null,
+    _initialLoadDone: false, // blocks server pushes until loadFromServer() completes
 
     // Deadline: Thursday 23:59
     getDeadline() {
@@ -141,6 +142,10 @@ const GameState = {
     // Debounced push to server (500ms after last save)
     _pushToServer() {
         if (!API.enabled) return;
+        if (!this._initialLoadDone) {
+            console.log("[GameState] Push blocked — waiting for initial server load");
+            return;
+        }
         if (this._pushTimer) clearTimeout(this._pushTimer);
         this._pushTimer = setTimeout(async () => {
             if (this._pushPending) return;
@@ -160,15 +165,23 @@ const GameState = {
 
     // Load game state from server (called on startup)
     async loadFromServer() {
-        if (!API.enabled) return false;
+        if (!API.enabled) {
+            this._initialLoadDone = true;
+            return false;
+        }
         try {
             const data = await API.getGameState();
-            if (!data || !data.state || !data.state.provinces) return false;
+            if (!data || !data.state || !data.state.provinces) {
+                this._initialLoadDone = true;
+                return false;
+            }
             this._applyServerState(data.state, data.version);
             console.log("[GameState] Loaded from server, version:", data.version);
+            this._initialLoadDone = true;
             return true;
         } catch (err) {
             console.warn("[GameState] Failed to load from server:", err.message);
+            this._initialLoadDone = true;
             return false;
         }
     },
