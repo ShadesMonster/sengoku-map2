@@ -232,6 +232,21 @@ const API = {
         if (!this.enabled) return null;
         return `${API_BASE_URL}/avatars?userIds=${userIds.join(",")}`;
     },
+
+    // ---- Wars ----
+
+    async createWar(provinceId, warData) {
+        return this.request("wars", "POST", { province_id: provinceId, war_data: warData });
+    },
+
+    async getWars(status) {
+        const qs = status ? `?status=${status}` : "";
+        return this.request(`wars${qs}`);
+    },
+
+    async updateWar(warId, updates) {
+        return this.request(`wars/${warId}`, "PUT", updates);
+    },
 };
 
 // ============================================================
@@ -256,6 +271,19 @@ const Auth = {
 
     isAdmin() {
         return this.user && this.user.discordId === ADMIN_DISCORD_ID;
+    },
+
+    // Can this user move armies for the given clan?
+    canMoveArmies(clanKey) {
+        if (!this.user) return false;
+        if (this.isAdmin()) return true;
+        // Daimyo of their own clan
+        if (this.user.isDaimyo && this.user.clanKey === clanKey) return true;
+        // Delegate for this clan
+        if (this.user.isDelegate && this.user.delegateForClans) {
+            return this.user.delegateForClans.some(d => d.clanKey === clanKey);
+        }
+        return false;
     },
 
     // Redirect to Discord OAuth2 login

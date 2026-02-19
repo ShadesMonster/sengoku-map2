@@ -82,6 +82,9 @@ const BattleSystem = {
         GameState.addHistory("battle",
             `${this.getBattleIcon(terrain)} ${battleType} at ${provData.name}: ${atkNames} vs ${defNames}`);
 
+        // Create war record in the database (triggers Discord war channel)
+        this._createWarRecord(battle, provData);
+
         return battle;
     },
 
@@ -579,5 +582,62 @@ const BattleSystem = {
             const clan = GameState.getClan(c);
             return `${clan.name} (${side.armyBreakdown[c] || 0})`;
         }).join(" + ");
+    },
+
+    // Create a war record in the DB (triggers Discord channel creation)
+    async _createWarRecord(battle, provData) {
+        if (!API.enabled) return;
+        try {
+            // Build war_data with clan info for the Discord channel
+            const buildSide = (side) => {
+                return side.clans.map(clanId => {
+                    const clan = GameState.getClan(clanId);
+                    const daimyo = clan && clan.daimyo;
+                    // Look up daimyo discord ID from linked accounts (server-side handles this)
+                    return {
+                        clanId,
+                        name: clan ? clan.name : clanId,
+                        troops: side.armyBreakdown[clanId] || 0,
+                        daimyoRobloxId: daimyo ? daimyo.robloxId : null,
+                    };
+                });
+            };
+
+            const sides = [
+                ...buildSide(battle.attacker),
+                ...buildSide(battle.defender),
+            ];
+
+            // Fetch daimyo Discord IDs from the linked accounts API
+            for (const side of sides) {
+                if (side.daimyoRobloxId) {
+                    try {
+                        const res = await fetch(
+                            `${API_BASE_URL.replace('/api/sengoku', '')}/api/discord/by-roblox/${side.daimyoRobloxId}`,
+                            { headers: { "X-API-Key": "internal" } }
+                        );
+                        if (res.ok) {
+                            const data = await res.json();
+                            side.daimyoDiscordId = data.discordId || null;
+                        }
+                    } catch (e) {
+                        // Non-critical
+                    }
+                }
+            }
+
+            const warData = {
+                provinceName: provData.name,
+                battleType: battle.battleType,
+                terrain: battle.terrain,
+                sides,
+                battleId: battle.id,
+                week: battle.week,
+            };
+
+            await API.createWar(battle.province, warData);
+        } catch (err) {
+            console.warn("[BattleSystem] Failed to create war record:", err.message);
+        }
     }
 };
