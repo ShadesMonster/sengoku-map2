@@ -241,6 +241,7 @@ const GameState = {
             try {
                 const data = await API.getGameState();
                 if (!data || !data.version) return;
+                App.setApiBanner(false);
                 if (data.version > this._serverVersion && data.state && data.state.provinces) {
                     this._applyServerState(data.state, data.version);
                     MapRenderer.update();
@@ -248,7 +249,7 @@ const GameState = {
                     console.log("[GameState] Synced from server, version:", data.version);
                 }
             } catch (err) {
-                // Silently fail on poll errors
+                App.setApiBanner(true);
             }
         }, ms);
     },

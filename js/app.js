@@ -57,6 +57,11 @@ const App = {
             this.updateUI();
         }
 
+        // Show API banner if server is unreachable
+        if (API.enabled && !serverLoaded) {
+            this.setApiBanner(true);
+        }
+
         // Start polling for state updates from other users (every 30s)
         GameState.startSync();
 
@@ -77,6 +82,11 @@ const App = {
 
         // Week display
         document.getElementById("week-display").textContent = `Week ${GameState.week}`;
+    },
+
+    setApiBanner(show) {
+        const banner = document.getElementById("api-banner");
+        if (banner) banner.classList.toggle("hidden", !show);
     },
 
     startCountdown() {

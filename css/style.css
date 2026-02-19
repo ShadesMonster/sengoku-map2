@@ -339,6 +339,26 @@ body {
     pointer-events: none;
 }
 
+/* === API Banner === */
+#api-banner {
+    position: fixed;
+    top: 48px;
+    left: 0;
+    right: 0;
+    z-index: 999;
+    background: var(--accent-red);
+    color: #fff;
+    text-align: center;
+    padding: 8px 16px;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+}
+
+#api-banner.hidden {
+    display: none;
+}
+
 /* === Notifications === */
 #notifications {
     position: fixed;
