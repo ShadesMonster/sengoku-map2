@@ -877,22 +877,23 @@ const Admin = {
         // Remove from deceased
         GameState.deceasedMembers[clanId] = deceased.filter(d => d.id !== personId);
 
-        // Add back as a dynamic child (living)
-        if (!GameState.dynamicChildren[clanId]) GameState.dynamicChildren[clanId] = [];
-        GameState.dynamicChildren[clanId].push({
-            id: person.id,
-            name: person.name,
-            gender: person.gender,
-            robloxId: person.robloxId || DEFAULT_ROBLOX_ID,
-            parentId: person.parentId || null,
-        });
-
-        // Re-add to DB if possible
-        if (person.robloxId && person.robloxId !== DEFAULT_ROBLOX_ID) {
-            API.addFamilyMember(clanId, person.name, "child", person.gender, person.robloxId).catch(err =>
-                console.warn("Failed to re-add to DB:", err)
-            );
+        // Add back to CLAN_FAMILIES.children (local session) — NOT dynamicChildren
+        // to avoid duplicates when loadFamiliesFromDB reloads from DB on next session
+        const family = CLAN_FAMILIES[clanId];
+        if (family) {
+            family.children.push({
+                id: person.id,
+                name: person.name,
+                gender: person.gender,
+                robloxId: person.robloxId || DEFAULT_ROBLOX_ID,
+                parentId: person.parentId || null,
+            });
         }
+
+        // Re-add to DB for persistence across reloads
+        API.addFamilyMember(clanId, person.name, "child", person.gender, person.robloxId || null).catch(err =>
+            console.warn("Failed to re-add to DB:", err)
+        );
 
         const clanName = GameState.getClan(clanId)?.name || clanId;
         GameState.addHistory("system", `${person.name} of ${clanName} has been resurrected.`);

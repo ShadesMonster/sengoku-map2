@@ -186,7 +186,7 @@ const MapInteraction = {
         const clanId = GameState.selectedClan;
         if (!clanId) return;
         if (!Auth.canMoveArmies(clanId)) {
-            Notifications.show("No map access. Ask your Daimyo to use /delegate in Discord.", "error");
+            Notifications.show("No map access. Ask your Daimyo to use /clan delegate in Discord.", "error");
             this.cancelMoveMode();
             return;
         }

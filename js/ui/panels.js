@@ -131,7 +131,7 @@ const Panels = {
 
         // Permission check — only daimyo, delegates, and admin can act
         if (!Auth.canMoveArmies(clanId)) {
-            container.innerHTML = '<div class="empty-state">No map access. Ask your Daimyo to use /delegate in Discord.</div>';
+            container.innerHTML = '<div class="empty-state">No map access. Ask your Daimyo to use /clan delegate in Discord.</div>';
             return;
         }
 
@@ -575,7 +575,11 @@ const ClanPanel = {
         if (!family) return [];
         const dynKids = GameState.dynamicChildren[clanId] || [];
         const deceased = GameState.deceasedMembers[clanId] || [];
-        return [...family.children, ...dynKids, ...deceased];
+        // Deduplicate by id (dynKids may overlap with family.children after DB reload)
+        const seen = new Set(family.children.map(c => c.id));
+        const uniqueDyn = dynKids.filter(d => { if (seen.has(d.id)) return false; seen.add(d.id); return true; });
+        const uniqueDeceased = deceased.filter(d => !seen.has(d.id));
+        return [...family.children, ...uniqueDyn, ...uniqueDeceased];
     },
 
     _getParents(personId, clanId) {
