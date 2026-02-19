@@ -14,13 +14,19 @@ const RobloxAvatar = {
     // Fetch all avatars for clan families on page load
     async fetchAll() {
         const ids = new Set();
-        Object.values(CLAN_FAMILIES).forEach(fam => {
+        Object.entries(CLAN_FAMILIES).forEach(([clanId, fam]) => {
             if (fam.leader && fam.leader.robloxId) ids.add(fam.leader.robloxId);
             if (fam.children) {
                 fam.children.forEach(c => {
                     if (c.robloxId) ids.add(c.robloxId);
                 });
             }
+            // Dynamic children
+            const dynKids = GameState.dynamicChildren[clanId] || [];
+            dynKids.forEach(c => { if (c.robloxId) ids.add(c.robloxId); });
+            // Deceased members
+            const deceased = GameState.deceasedMembers[clanId] || [];
+            deceased.forEach(c => { if (c.robloxId) ids.add(c.robloxId); });
         });
 
         const unique = [...ids];
