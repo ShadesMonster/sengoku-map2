@@ -140,10 +140,17 @@ const Panels = {
         const hasTroops = ArmySystem.getArmyInProvince(clanId, provinceId) > 0;
         const ownsProvince = state.owner === clanId;
 
+        // Check if clan has committed orders (locks out new moves)
+        const hasCommittedOrders = GameState.orders.some(o => o.clanId === clanId && o.status === "committed");
+
         // Planning phase actions
         if (GameState.phase === "planning") {
-            // Raise Levy (only in owned provinces)
-            if (ownsProvince) {
+            if (hasCommittedOrders) {
+                container.innerHTML = '<div class="empty-state">Orders committed for this week. Uncommit to make changes.</div>';
+            }
+
+            // Raise Levy (only in owned provinces, and not locked)
+            if (ownsProvince && !hasCommittedOrders) {
                 const rallyInfo = ArmySystem.getRallyInfo(clanId);
                 const btn = this.createButton(
                     `Raise Levy (${rallyInfo.available.toLocaleString()} available)`,
@@ -154,8 +161,8 @@ const Panels = {
                 container.appendChild(btn);
             }
 
-            // Move Army (if has troops here)
-            if (hasTroops) {
+            // Move Army (if has troops here, and not locked)
+            if (hasTroops && !hasCommittedOrders) {
                 const committed = MoveSystem.getOrdersFrom(clanId, provinceId)
                     .reduce((sum, o) => sum + o.troops, 0);
                 const available = ArmySystem.getArmyInProvince(clanId, provinceId) - committed;
@@ -170,8 +177,8 @@ const Panels = {
                 }
             }
 
-            // Gift province (to allies)
-            if (ownsProvince) {
+            // Gift province (to allies, and not locked)
+            if (ownsProvince && !hasCommittedOrders) {
                 const allies = GameState.getAllies(clanId);
                 if (allies.length > 0) {
                     container.appendChild(this.createButton(

@@ -6,6 +6,12 @@ const MoveSystem = {
             return { success: false, error: "Can only create orders during Planning Phase" };
         }
 
+        // Block new orders if clan already has committed orders
+        const hasCommitted = GameState.orders.some(o => o.clanId === clanId && o.status === "committed");
+        if (hasCommitted) {
+            return { success: false, error: "Orders already committed for this week. Uncommit first to make changes." };
+        }
+
         const from = PROVINCE_MAP[fromProvince];
         const to = PROVINCE_MAP[toProvince];
         if (!from || !to) return { success: false, error: "Invalid province" };
@@ -45,6 +51,7 @@ const MoveSystem = {
 
         GameState.orders.push(order);
         GameState.save();
+        GameState.flushNow();
 
         const clan = GameState.getClan(clanId);
         GameState.addHistory("move",
@@ -63,6 +70,7 @@ const MoveSystem = {
         order.status = "committed";
         order.committedAt = new Date().toISOString();
         GameState.save();
+        GameState.flushNow();
 
         const clan = GameState.getClan(order.clanId);
         const from = PROVINCE_MAP[order.fromProvince];
@@ -92,6 +100,7 @@ const MoveSystem = {
         order.status = "pending";
         order.committedAt = null;
         GameState.save();
+        GameState.flushNow();
 
         return { success: true };
     },
@@ -109,6 +118,7 @@ const MoveSystem = {
 
         GameState.orders.splice(idx, 1);
         GameState.save();
+        GameState.flushNow();
         return { success: true };
     },
 

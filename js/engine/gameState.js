@@ -163,6 +163,21 @@ const GameState = {
         }, 500);
     },
 
+    // Push to server immediately (no debounce) — use for critical operations
+    flushNow() {
+        if (!API.enabled || !this._initialLoadDone) return;
+        if (this._pushTimer) { clearTimeout(this._pushTimer); this._pushTimer = null; }
+        if (this._pushPending) return;
+
+        this._pushPending = true;
+        API.saveGameState(this._getSharedState())
+            .then(result => {
+                if (result && result.version) this._serverVersion = result.version;
+            })
+            .catch(err => console.warn("[GameState] Flush failed:", err.message))
+            .finally(() => { this._pushPending = false; });
+    },
+
     // Load game state from server (called on startup)
     async loadFromServer() {
         if (!API.enabled) {
