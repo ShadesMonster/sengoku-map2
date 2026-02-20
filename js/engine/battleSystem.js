@@ -610,6 +610,20 @@ const BattleSystem = {
 
             // Discord ID resolution is handled server-side in POST /wars
 
+            // Include waiting clans for bracket display
+            const waitingClans = (battle.waitingAttackers || []).map(block => {
+                return block.clans.map(clanId => {
+                    const clan = GameState.getClan(clanId);
+                    const daimyo = clan && clan.daimyo;
+                    return {
+                        clanId,
+                        name: clan ? clan.name : clanId,
+                        troops: block.armyBreakdown[clanId] || 0,
+                        daimyoRobloxId: daimyo ? daimyo.robloxId : null,
+                    };
+                });
+            }).flat();
+
             const warData = {
                 provinceName: provData.name,
                 battleType: battle.battleType,
@@ -617,6 +631,9 @@ const BattleSystem = {
                 sides,
                 battleId: battle.id,
                 week: battle.week,
+                bracketRound: battle.bracketRound || null,
+                bracketId: battle.bracketId || null,
+                waitingClans: waitingClans.length > 0 ? waitingClans : null,
             };
 
             await API.createWar(battle.province, warData);
