@@ -221,8 +221,8 @@ const API = {
         return this.request("gamestate");
     },
 
-    async saveGameState(state) {
-        return this.request("gamestate", "PUT", { state });
+    async saveGameState(state, expectedVersion) {
+        return this.request("gamestate", "PUT", { state, expectedVersion });
     },
 
     // ---- Avatars (proxy) ----

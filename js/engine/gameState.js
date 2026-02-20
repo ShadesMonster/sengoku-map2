@@ -151,12 +151,17 @@ const GameState = {
             if (this._pushPending) return;
             this._pushPending = true;
             try {
-                const result = await API.saveGameState(this._getSharedState());
+                const result = await API.saveGameState(this._getSharedState(), this._serverVersion);
                 if (result && result.version) {
                     this._serverVersion = result.version;
                 }
             } catch (err) {
-                console.warn("[GameState] Failed to push to server:", err.message);
+                if (err.message === "Version conflict") {
+                    console.warn("[GameState] Version conflict — syncing from server");
+                    this._handleConflict();
+                } else {
+                    console.warn("[GameState] Failed to push to server:", err.message);
+                }
             } finally {
                 this._pushPending = false;
             }
@@ -170,12 +175,34 @@ const GameState = {
         if (this._pushPending) return;
 
         this._pushPending = true;
-        API.saveGameState(this._getSharedState())
+        API.saveGameState(this._getSharedState(), this._serverVersion)
             .then(result => {
                 if (result && result.version) this._serverVersion = result.version;
             })
-            .catch(err => console.warn("[GameState] Flush failed:", err.message))
+            .catch(err => {
+                if (err.message === "Version conflict") {
+                    console.warn("[GameState] Version conflict — syncing from server");
+                    this._handleConflict();
+                } else {
+                    console.warn("[GameState] Flush failed:", err.message);
+                }
+            })
             .finally(() => { this._pushPending = false; });
+    },
+
+    // Handle version conflict — pull server state and refresh UI
+    async _handleConflict() {
+        try {
+            const data = await API.getGameState();
+            if (data && data.state && data.state.provinces) {
+                this._applyServerState(data.state, data.version);
+                MapRenderer.update();
+                App.updateUI();
+                Notifications.show("Map updated — another player made changes.", "info");
+            }
+        } catch (err) {
+            console.warn("[GameState] Conflict sync failed:", err.message);
+        }
     },
 
     // Load game state from server (called on startup)
