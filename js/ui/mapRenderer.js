@@ -251,6 +251,9 @@ const MapRenderer = {
 
             if (GameState.selectedClan && order.clanId !== GameState.selectedClan) return;
 
+            // Hide orders from users who don't have permission to see them
+            if (!Auth.canMoveArmies(order.clanId)) return;
+
             const isPending = order.status === "pending";
             const color = isPending ? "#f0c040" : "#40c060";
             const markerEnd = isPending ? "url(#arrow-pending)" : "url(#arrow-committed)";
