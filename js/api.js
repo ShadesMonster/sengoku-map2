@@ -259,6 +259,10 @@ const API = {
     async getWarLiveScore(warId) {
         return this.request(`wars/${warId}/score`);
     },
+
+    async getWarsThisWeek() {
+        return this.request("wars/week");
+    },
 };
 
 // ============================================================

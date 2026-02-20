@@ -901,5 +901,99 @@ const BattleSystem = {
         } catch (err) {
             console.warn("[BattleSystem] Failed to report war result:", err.message);
         }
+    },
+
+    // ============================================================
+    // Auto-resolve: poll for Roblox-reported victories
+    // ============================================================
+
+    _processedWarIds: {},
+    _lastAutoResolveCheck: 0,
+
+    async checkCompletedWars() {
+        if (!API.enabled) return;
+
+        // Only check every 15 seconds
+        const now = Date.now();
+        if (now - this._lastAutoResolveCheck < 15000) return;
+        this._lastAutoResolveCheck = now;
+
+        // Only check if we have pending battles
+        const pending = this.getPendingBattles();
+        if (pending.length === 0) return;
+
+        try {
+            const data = await API.getWars('completed');
+            if (!data || !data.wars) return;
+
+            for (const war of data.wars) {
+                if (this._processedWarIds[war.id]) continue;
+
+                // Skip wars completed more than 1 hour ago
+                const updatedAt = new Date(war.updatedAt).getTime();
+                if (now - updatedAt > 60 * 60 * 1000) {
+                    this._processedWarIds[war.id] = true;
+                    continue;
+                }
+
+                const result = war.result;
+                if (!result || !result.winner) continue;
+
+                // Find matching pending battle by dbWarId or bracketWarId
+                const battle = pending.find(b => {
+                    if (b.status !== "pending") return false;
+                    const dbWarId = b.dbWarId || (b.bracketId && GameState.bracketWarIds && GameState.bracketWarIds[b.bracketId]);
+                    return dbWarId === war.id;
+                });
+
+                if (!battle) {
+                    this._processedWarIds[war.id] = true;
+                    continue;
+                }
+
+                // Determine which side (attacker/defender) won
+                const winnerName = result.winner.toLowerCase();
+                const attackerNames = battle.attacker.clans.map(c => {
+                    const clan = GameState.getClan(c);
+                    return clan ? clan.name.toLowerCase() : c.toLowerCase();
+                });
+                const defenderNames = battle.defender.clans.map(c => {
+                    const clan = GameState.getClan(c);
+                    return clan ? clan.name.toLowerCase() : c.toLowerCase();
+                });
+
+                let winningSide = null;
+                if (attackerNames.some(name => winnerName.includes(name))) {
+                    winningSide = "attacker";
+                } else if (defenderNames.some(name => winnerName.includes(name))) {
+                    winningSide = "defender";
+                }
+
+                if (!winningSide) {
+                    console.warn("[AutoResolve] Could not match winner '" + result.winner + "' to battle sides at " + battle.provinceName);
+                    this._processedWarIds[war.id] = true;
+                    continue;
+                }
+
+                console.log("[AutoResolve] Resolving battle at " + battle.provinceName + ": " + result.winner + " (" + winningSide + ") wins");
+
+                const resolveResult = this.resolveBattle(battle.id, winningSide);
+                this._processedWarIds[war.id] = true;
+
+                if (resolveResult.success) {
+                    await GameState.flushNow();
+                    Notifications.show("Battle auto-resolved: " + result.winner + " wins at " + battle.provinceName + "!", "success");
+                    MapRenderer.update();
+                    // Refresh admin panel if open
+                    if (!document.getElementById("admin-panel").classList.contains("hidden")) {
+                        Admin.render();
+                    }
+                    // Update war panel if it exists
+                    if (typeof WarPanel !== 'undefined') WarPanel.refresh();
+                }
+            }
+        } catch (err) {
+            console.warn("[AutoResolve] Check failed:", err.message);
+        }
     }
 };

@@ -1536,3 +1536,265 @@
     font-size: 12px;
     font-style: italic;
 }
+
+/* === War Panel ("Battles This Week") === */
+.war-empty {
+    padding: 24px;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 13px;
+    font-style: italic;
+}
+
+.war-section {
+    margin-bottom: 12px;
+}
+
+.war-section-title {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    padding: 4px 8px;
+    border-radius: 3px;
+    margin-bottom: 8px;
+    font-weight: 600;
+}
+
+.active-title {
+    color: #fff;
+    background: var(--accent-red);
+}
+
+.scheduled-title {
+    color: var(--text-primary);
+    background: rgba(68, 136, 204, 0.3);
+    border-left: 3px solid var(--accent-blue);
+}
+
+.pending-title {
+    color: var(--text-secondary);
+    background: rgba(200, 168, 78, 0.15);
+    border-left: 3px solid var(--accent-gold);
+}
+
+.completed-title {
+    color: var(--text-muted);
+    background: rgba(64, 192, 96, 0.15);
+    border-left: 3px solid var(--accent-green);
+}
+
+.war-card {
+    background: var(--bg-card);
+    border-radius: 6px;
+    padding: 10px 12px;
+    margin-bottom: 8px;
+    border-left: 3px solid var(--border);
+}
+
+.war-card.war-active {
+    border-left-color: var(--accent-red);
+    background: linear-gradient(90deg, rgba(204, 51, 51, 0.08), var(--bg-card));
+}
+
+.war-card.war-scheduled {
+    border-left-color: var(--accent-blue);
+}
+
+.war-card.war-pending {
+    border-left-color: var(--accent-gold);
+}
+
+.war-card.war-completed {
+    border-left-color: var(--accent-green);
+    opacity: 0.8;
+}
+
+.war-card-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 6px;
+}
+
+.war-status-badge {
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+
+.war-status-badge.active {
+    background: var(--accent-red);
+    color: #fff;
+    animation: pulse-live 2s ease-in-out infinite;
+}
+
+.war-status-badge.scheduled {
+    background: rgba(68, 136, 204, 0.3);
+    color: var(--accent-blue);
+}
+
+.war-status-badge.pending {
+    background: rgba(200, 168, 78, 0.2);
+    color: var(--accent-gold);
+}
+
+.war-status-badge.completed {
+    background: rgba(64, 192, 96, 0.2);
+    color: var(--accent-green);
+}
+
+@keyframes pulse-live {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+}
+
+.war-bracket-badge {
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 2px 5px;
+    border-radius: 3px;
+    background: rgba(170, 68, 204, 0.2);
+    color: #bb66dd;
+    font-weight: 600;
+}
+
+.war-province {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-left: auto;
+}
+
+.war-sides {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    justify-content: center;
+    margin: 6px 0;
+}
+
+.war-side {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.war-side.side-1 {
+    text-align: right;
+    flex: 1;
+}
+
+.war-side.side-2 {
+    text-align: left;
+    flex: 1;
+}
+
+.war-vs {
+    font-size: 10px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    flex-shrink: 0;
+}
+
+.war-troops {
+    display: flex;
+    justify-content: space-between;
+    font-size: 10px;
+    color: var(--text-muted);
+    padding: 0 4px;
+}
+
+.war-live-score {
+    margin-top: 8px;
+    padding: 6px 0;
+    border-top: 1px solid var(--border);
+}
+
+.war-score-labels {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 10px;
+    margin-bottom: 4px;
+}
+
+.score-team1 {
+    color: #cc5555;
+    font-weight: 600;
+}
+
+.score-team2 {
+    color: #5577cc;
+    font-weight: 600;
+}
+
+.score-live-tag {
+    font-size: 8px;
+    color: var(--accent-red);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-weight: 700;
+    animation: pulse-live 1.5s ease-in-out infinite;
+}
+
+.war-score-bar {
+    position: relative;
+    height: 8px;
+    background: linear-gradient(90deg, rgba(204, 85, 85, 0.2), rgba(85, 119, 204, 0.2));
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.war-score-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #cc5555, #886644 45%, #5577cc);
+    border-radius: 4px;
+    transition: width 0.5s ease;
+}
+
+.war-score-center {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    width: 2px;
+    height: 100%;
+    background: var(--text-muted);
+    transform: translateX(-50%);
+    opacity: 0.5;
+}
+
+.war-schedule {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 6px;
+    padding-top: 6px;
+    border-top: 1px solid var(--border);
+    font-size: 11px;
+}
+
+.war-date {
+    color: var(--text-secondary);
+}
+
+.war-countdown {
+    color: var(--accent-blue);
+    font-weight: 600;
+}
+
+.war-result {
+    margin-top: 6px;
+    padding-top: 6px;
+    border-top: 1px solid var(--border);
+    font-size: 11px;
+}
+
+.war-winner {
+    color: var(--accent-green);
+    font-weight: 600;
+}

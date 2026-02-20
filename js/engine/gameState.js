@@ -308,6 +308,16 @@ const GameState = {
                 App.setApiBanner(true);
             }
 
+            // Check for Roblox-reported war victories (auto-resolve on map)
+            try {
+                await BattleSystem.checkCompletedWars();
+            } catch (e) { /* ignore */ }
+
+            // Refresh war panel if it exists
+            try {
+                if (typeof WarPanel !== 'undefined') WarPanel.refresh();
+            } catch (e) { /* ignore */ }
+
             // Refresh auth every ~30s (every 6th sync at 5s interval)
             this._authRefreshCounter++;
             if (this._authRefreshCounter >= 6 && Auth.getToken()) {
