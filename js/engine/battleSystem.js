@@ -608,23 +608,7 @@ const BattleSystem = {
                 ...buildSide(battle.defender),
             ];
 
-            // Fetch daimyo Discord IDs from the linked accounts API
-            for (const side of sides) {
-                if (side.daimyoRobloxId) {
-                    try {
-                        const res = await fetch(
-                            `${API_BASE_URL.replace('/api/sengoku', '')}/api/discord/by-roblox/${side.daimyoRobloxId}`,
-                            { headers: { "X-API-Key": "internal" } }
-                        );
-                        if (res.ok) {
-                            const data = await res.json();
-                            side.daimyoDiscordId = data.discordId || null;
-                        }
-                    } catch (e) {
-                        // Non-critical
-                    }
-                }
-            }
+            // Discord ID resolution is handled server-side in POST /wars
 
             const warData = {
                 provinceName: provData.name,
