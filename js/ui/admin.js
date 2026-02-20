@@ -10,16 +10,8 @@ const Admin = {
         });
 
         // Phase controls
-        document.getElementById("admin-toggle-phase").addEventListener("click", () => {
-            this.togglePhase();
-        });
-
-        document.getElementById("admin-process-moves").addEventListener("click", () => {
-            this.processMoves();
-        });
-
-        document.getElementById("admin-advance-week").addEventListener("click", () => {
-            this.advanceWeek();
+        document.getElementById("admin-next-phase").addEventListener("click", () => {
+            this.nextPhase();
         });
 
         // Province management
@@ -64,6 +56,7 @@ const Admin = {
         this.renderClanList();
         this.renderFamilyList();
         this.renderBattleList();
+        this.updatePhaseStatus();
     },
 
     populateProvinceSelect() {
@@ -376,45 +369,78 @@ const Admin = {
         `;
     },
 
-    togglePhase() {
+    nextPhase() {
         if (GameState.phase === "planning") {
+            // Planning → Process moves → Battle phase
+            const result = MoveSystem.processOrders();
             GameState.phase = "battle";
             GameState.addHistory("system", `Battle Phase begins! Week ${GameState.week}`);
-        } else {
-            GameState.phase = "planning";
-            GameState.addHistory("system", `Planning Phase begins. Week ${GameState.week}`);
-        }
-        GameState.save();
-        App.updateUI();
-        Notifications.show(`Phase changed to: ${GameState.phase}`, "info");
-    },
-
-    processMoves() {
-        const result = MoveSystem.processOrders();
-        if (result.success) {
-            Notifications.show(
-                `Processed ${result.movesProcessed} moves. ${result.battlesGenerated} battles generated!`,
-                "success"
-            );
+            GameState.save();
+            GameState.flushNow();
             MapRenderer.update();
+            App.updateUI();
             this.render();
+            this.updatePhaseStatus();
+
+            if (result.success) {
+                Notifications.show(
+                    `Processed ${result.movesProcessed} moves. ${result.battlesGenerated} battles generated!`,
+                    "success"
+                );
+            } else {
+                Notifications.show("No committed orders — moved to Battle Phase.", "info");
+            }
         } else {
-            Notifications.show(result.error, "error");
+            // Battle → check for unresolved battles
+            const unresolvedBattles = GameState.battles.filter(b => b.status !== "resolved");
+            if (unresolvedBattles.length > 0) {
+                Notifications.show(
+                    `${unresolvedBattles.length} unresolved battle(s) remaining. Resolve them first!`,
+                    "error"
+                );
+                return;
+            }
+
+            // Battle → Advance week → Planning
+            GameState.week++;
+            GameState.phase = "planning";
+            GameState.orders = [];
+            GameState.battles = GameState.battles.filter(b => b.status !== "resolved");
+            GameState.pendingAttacks = [];
+            BattleSystem.advanceRetreats();
+            ArmySystem.recoverCasualties();
+            GameState.addHistory("system", `Week ${GameState.week} begins. Planning Phase.`);
+            GameState.save();
+            GameState.flushNow();
+            MapRenderer.update();
+            App.updateUI();
+            this.render();
+            this.updatePhaseStatus();
+            Notifications.show(`Advanced to Week ${GameState.week} — Planning Phase`, "success");
         }
     },
 
-    advanceWeek() {
-        GameState.week++;
-        GameState.phase = "planning";
-        GameState.orders = [];
-        GameState.battles = GameState.battles.filter(b => b.status !== "resolved");
-        GameState.pendingAttacks = [];
-        BattleSystem.advanceRetreats();
-        ArmySystem.recoverCasualties();
-        GameState.addHistory("system", `Week ${GameState.week} begins. Planning Phase.`);
-        GameState.save();
-        App.updateUI();
-        Notifications.show(`Advanced to Week ${GameState.week}`, "success");
+    updatePhaseStatus() {
+        const statusEl = document.getElementById("admin-phase-status");
+        const btn = document.getElementById("admin-next-phase");
+        if (!statusEl || !btn) return;
+
+        if (GameState.phase === "planning") {
+            const committedOrders = GameState.orders.filter(o => o.status === "committed").length;
+            const pendingOrders = GameState.orders.filter(o => o.status === "pending").length;
+            statusEl.innerHTML = `<strong>Planning Phase</strong> — Week ${GameState.week}<br>` +
+                `${committedOrders} committed order(s), ${pendingOrders} pending`;
+            btn.textContent = "Next Phase → Process Moves & Start Battles";
+        } else {
+            const unresolvedBattles = GameState.battles.filter(b => b.status !== "resolved").length;
+            statusEl.innerHTML = `<strong>Battle Phase</strong> — Week ${GameState.week}<br>` +
+                `${unresolvedBattles} unresolved battle(s)`;
+            if (unresolvedBattles > 0) {
+                btn.textContent = `Resolve ${unresolvedBattles} Battle(s) First`;
+            } else {
+                btn.textContent = "Next Phase → Advance to Week " + (GameState.week + 1);
+            }
+        }
     },
 
     resetGame() {
@@ -464,6 +490,7 @@ const Admin = {
 
         GameState.addHistory("system", "Game reset to Week 1. All clans respawned at their castles.");
         GameState.save();
+        GameState.flushNow();
         MapRenderer.update();
         App.updateUI();
         this.render();

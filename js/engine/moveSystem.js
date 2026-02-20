@@ -178,6 +178,7 @@ const MoveSystem = {
         // Clear processed orders
         GameState.orders = GameState.orders.filter(o => o.status !== "committed");
         GameState.save();
+        GameState.flushNow();
 
         return {
             success: true,

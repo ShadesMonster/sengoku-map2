@@ -275,9 +275,12 @@ const GameState = {
     },
 
     // Start polling for state updates from server
+    _authRefreshCounter: 0,
+
     startSync(intervalMs) {
         if (this._syncInterval) clearInterval(this._syncInterval);
-        const ms = intervalMs || 30000;
+        const ms = intervalMs || 5000;
+        this._authRefreshCounter = 0;
         this._syncInterval = setInterval(async () => {
             if (!API.enabled || this._pushPending) return;
             try {
@@ -292,6 +295,16 @@ const GameState = {
                 }
             } catch (err) {
                 App.setApiBanner(true);
+            }
+
+            // Refresh auth every ~30s (every 6th sync at 5s interval)
+            this._authRefreshCounter++;
+            if (this._authRefreshCounter >= 6 && Auth.getToken()) {
+                this._authRefreshCounter = 0;
+                try {
+                    await Auth.fetchUser();
+                    Auth.updateUI();
+                } catch (e) { /* ignore */ }
             }
         }, ms);
     },

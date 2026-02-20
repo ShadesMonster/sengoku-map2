@@ -312,6 +312,7 @@ const BattleSystem = {
         }
 
         GameState.save();
+        GameState.flushNow();
 
         return {
             success: true,

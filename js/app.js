@@ -62,8 +62,8 @@ const App = {
             this.setApiBanner(true);
         }
 
-        // Start polling for state updates from other users (every 30s)
-        GameState.startSync();
+        // Start polling for state updates from other users (every 5s)
+        GameState.startSync(5000);
 
         // Start countdown timer
         this.startCountdown();
