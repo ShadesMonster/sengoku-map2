@@ -169,13 +169,14 @@ const GameState = {
     },
 
     // Push to server immediately (no debounce) — use for critical operations
+    // Returns a promise so callers can await if needed
     flushNow() {
-        if (!API.enabled || !this._initialLoadDone) return;
+        if (!API.enabled || !this._initialLoadDone) return Promise.resolve();
         if (this._pushTimer) { clearTimeout(this._pushTimer); this._pushTimer = null; }
-        if (this._pushPending) return;
+        if (this._pushPending) return Promise.resolve();
 
         this._pushPending = true;
-        API.saveGameState(this._getSharedState(), this._serverVersion)
+        return API.saveGameState(this._getSharedState(), this._serverVersion)
             .then(result => {
                 if (result && result.version) this._serverVersion = result.version;
             })

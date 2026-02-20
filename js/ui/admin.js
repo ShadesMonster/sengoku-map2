@@ -369,14 +369,14 @@ const Admin = {
         `;
     },
 
-    nextPhase() {
+    async nextPhase() {
         if (GameState.phase === "planning") {
             // Planning → Process moves → Battle phase
             const result = MoveSystem.processOrders();
             GameState.phase = "battle";
             GameState.addHistory("system", `Battle Phase begins! Week ${GameState.week}`);
             GameState.save();
-            GameState.flushNow();
+            await GameState.flushNow();
             MapRenderer.update();
             App.updateUI();
             this.render();
@@ -411,7 +411,7 @@ const Admin = {
             ArmySystem.recoverCasualties();
             GameState.addHistory("system", `Week ${GameState.week} begins. Planning Phase.`);
             GameState.save();
-            GameState.flushNow();
+            await GameState.flushNow();
             MapRenderer.update();
             App.updateUI();
             this.render();
@@ -608,10 +608,11 @@ const Admin = {
         Notifications.show(`${clan.name} display updated`, "info");
     },
 
-    resolveBattle(battleId, winningSide) {
+    async resolveBattle(battleId, winningSide) {
         const result = BattleSystem.resolveBattle(battleId, winningSide);
 
         if (result.success) {
+            await GameState.flushNow();
             let msg = `${result.winner} wins! Defeated: ${result.losers.join(", ")}`;
             if (result.hasChainBattle) {
                 msg += " — Chain battle created!";
