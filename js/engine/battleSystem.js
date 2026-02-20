@@ -611,7 +611,13 @@ const BattleSystem = {
             // Discord ID resolution is handled server-side in POST /wars
 
             // Include waiting clans for bracket display
-            const waitingClans = (battle.waitingAttackers || []).map(block => {
+            // waitingAttackers = non-owner clans waiting their turn
+            // provinceOwnerTroops = province owner who fights the bracket winner
+            const allWaiting = [...(battle.waitingAttackers || [])];
+            if (battle.provinceOwnerTroops) {
+                allWaiting.push(battle.provinceOwnerTroops);
+            }
+            const waitingClans = allWaiting.map(block => {
                 return block.clans.map(clanId => {
                     const clan = GameState.getClan(clanId);
                     const daimyo = clan && clan.daimyo;
@@ -624,6 +630,8 @@ const BattleSystem = {
                 });
             }).flat();
 
+            const isBracket = battle.bracketRound || waitingClans.length > 0;
+
             const warData = {
                 provinceName: provData.name,
                 battleType: battle.battleType,
@@ -634,6 +642,7 @@ const BattleSystem = {
                 bracketRound: battle.bracketRound || null,
                 bracketId: battle.bracketId || null,
                 waitingClans: waitingClans.length > 0 ? waitingClans : null,
+                isBracket: isBracket || false,
             };
 
             await API.createWar(battle.province, warData);
