@@ -247,6 +247,18 @@ const API = {
     async updateWar(warId, updates) {
         return this.request(`wars/${warId}`, "PUT", updates);
     },
+
+    async reportWarResult(warId, winner, loser) {
+        return this.request(`wars/${warId}/result`, "POST", { winner, loser });
+    },
+
+    async postBracketRound(warId, roundData) {
+        return this.request(`wars/${warId}/bracket-round`, "POST", roundData);
+    },
+
+    async getWarLiveScore(warId) {
+        return this.request(`wars/${warId}/score`);
+    },
 };
 
 // ============================================================

@@ -77,6 +77,8 @@ const GameState = {
         this.dynamicChildren = {};
         this.protectedProvinces = {};
         this.deceasedMembers = {};
+        this.bracketWarIds = {};
+        this.bracketState = {};
         this.history = [];
 
         // Initialize provinces (structure only - ownership set by admin)
@@ -109,6 +111,8 @@ const GameState = {
             dynamicChildren: this.dynamicChildren,
             protectedProvinces: this.protectedProvinces,
             deceasedMembers: this.deceasedMembers,
+            bracketWarIds: this.bracketWarIds,
+            bracketState: this.bracketState,
             history: this.history,
             selectedClan: this.selectedClan
         };
@@ -135,6 +139,8 @@ const GameState = {
             dynamicChildren: this.dynamicChildren,
             protectedProvinces: this.protectedProvinces,
             deceasedMembers: this.deceasedMembers,
+            bracketWarIds: this.bracketWarIds,
+            bracketState: this.bracketState,
             history: this.history,
         };
     },
@@ -246,6 +252,8 @@ const GameState = {
         this.dynamicChildren = serverState.dynamicChildren || {};
         this.protectedProvinces = serverState.protectedProvinces || {};
         this.deceasedMembers = serverState.deceasedMembers || {};
+        this.bracketWarIds = serverState.bracketWarIds || {};
+        this.bracketState = serverState.bracketState || {};
         this.history = serverState.history || [];
 
         // Restore per-user values
@@ -269,6 +277,8 @@ const GameState = {
             dynamicChildren: this.dynamicChildren,
             protectedProvinces: this.protectedProvinces,
             deceasedMembers: this.deceasedMembers,
+            bracketWarIds: this.bracketWarIds,
+            bracketState: this.bracketState,
             history: this.history,
             selectedClan: this.selectedClan,
         };

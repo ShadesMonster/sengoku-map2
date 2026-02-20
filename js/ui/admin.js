@@ -322,8 +322,12 @@ const Admin = {
                 waitingHtml = `<div class="battle-waiting">Waiting: ${waitList}</div>`;
             }
 
+            // Live score indicator (populated async)
+            const scoreId = `live-score-${battle.id}`;
+
             return `
                 <div class="battle-card">
+                    <div id="${scoreId}" class="battle-live-score" style="display:none"></div>
                     <div class="battle-header">
                         <strong>${icon} ${battle.battleType}</strong>
                         <span>at ${battle.provinceName}</span>
@@ -351,6 +355,43 @@ const Admin = {
                 </div>
             `;
         }).join("");
+
+        // Fetch live scores for battles with linked war IDs
+        this._fetchLiveScores(pending);
+    },
+
+    async _fetchLiveScores(battles) {
+        if (!API.enabled) return;
+        for (const battle of battles) {
+            const warId = battle.dbWarId || (battle.bracketId && GameState.bracketWarIds && GameState.bracketWarIds[battle.bracketId]);
+            if (!warId) continue;
+
+            try {
+                const data = await API.getWarLiveScore(warId);
+                if (data && data.live && data.score) {
+                    const el = document.getElementById(`live-score-${battle.id}`);
+                    if (!el) continue;
+
+                    const s = data.score;
+                    const pct = ((s.meter / s.maxMeter) * 50) + 50; // 0-100 where 50 is center
+                    const team1Winning = s.meter > 0;
+                    const leader = team1Winning ? s.team1Name : s.team2Name;
+
+                    el.style.display = "block";
+                    el.innerHTML = `
+                        <div style="font-size:11px;color:#e8d5b0;margin-bottom:4px">
+                            LIVE — ${s.team1Players || 0}v${s.team2Players || 0} players
+                        </div>
+                        <div style="background:#333;height:8px;border-radius:4px;overflow:hidden;position:relative">
+                            <div style="position:absolute;left:0;top:0;height:100%;width:${pct}%;background:${team1Winning ? '#e74c3c' : '#3498db'};transition:width 0.5s"></div>
+                        </div>
+                        <div style="font-size:10px;color:#aaa;margin-top:2px">${leader} leading</div>
+                    `;
+                }
+            } catch (e) {
+                // ignore score fetch failures
+            }
+        }
     },
 
     _renderBattleSide(side, label) {

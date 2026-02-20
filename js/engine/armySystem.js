@@ -49,7 +49,7 @@ const ArmySystem = {
         if (!GameState.casualties) return;
         for (const clanId of Object.keys(GameState.casualties)) {
             const current = GameState.casualties[clanId];
-            const recovered = Math.floor(current * this.CASUALTY_RECOVERY_RATE);
+            const recovered = roundTo10(Math.floor(current * this.CASUALTY_RECOVERY_RATE));
             GameState.casualties[clanId] = current - recovered;
 
             // Clean up fully recovered

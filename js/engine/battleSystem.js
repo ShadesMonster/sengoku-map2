@@ -1,4 +1,6 @@
 // Battle System - Complete battle resolution with brackets, alliances, chain fights
+const roundTo10 = (n) => Math.round(n / 10) * 10;
+
 const BattleSystem = {
 
     // ============================================================
@@ -61,6 +63,10 @@ const BattleSystem = {
 
             // Chain info (filled in below)
             chainInfo: {},
+
+            // Bracket troop preservation: deferred casualties applied at end
+            deferredCasualties: options.deferredCasualties || {},
+            originalTroops: options.originalTroops || null,
 
             status: "pending",
             winner: null,
@@ -148,7 +154,6 @@ const BattleSystem = {
         let combatants = [...allianceBlocks];
         if (ownerBlockIdx >= 0) {
             provinceOwnerTroops = combatants.splice(ownerBlockIdx, 1)[0];
-            // Don't remove owner troops from province yet - they stay until final fight
         }
 
         // Shuffle for random pairing
@@ -157,20 +162,51 @@ const BattleSystem = {
             [combatants[i], combatants[j]] = [combatants[j], combatants[i]];
         }
 
-        // First pair fights, rest go to waiting queue
-        const first = combatants[0];
-        const second = combatants[1];
-        const waiting = combatants.slice(2);
+        // Initialize bracket state for parallel tracking
+        if (!GameState.bracketState) GameState.bracketState = {};
 
-        const battle = this.createBattle(provinceId, first, second, {
-            isSanryo: true, // collisions are always Sanryō
-            bracketRound: 1,
-            bracketId,
-            waitingAttackers: waiting,
-            provinceOwnerTroops
-        });
+        const bracketState = {
+            round: 1,
+            provinceId,
+            activeBattleIds: [],
+            resolvedWinners: [],   // winner blocks from current round
+            byeBlock: null,        // odd-one-out who gets a bye
+            provinceOwnerTroops,
+            deferredCasualties: {},
+        };
 
-        return battle;
+        // Create parallel pairs — all fights happen at the same time
+        const battles = [];
+        for (let i = 0; i + 1 < combatants.length; i += 2) {
+            const battle = this.createBattle(provinceId, combatants[i], combatants[i + 1], {
+                isSanryo: true,
+                bracketRound: 1,
+                bracketId,
+                waitingAttackers: [],           // no sequential queue
+                provinceOwnerTroops: null,      // tracked in bracketState instead
+            });
+            bracketState.activeBattleIds.push(battle.id);
+            battles.push(battle);
+        }
+
+        // Odd one out gets a bye
+        if (combatants.length % 2 === 1) {
+            bracketState.byeBlock = combatants[combatants.length - 1];
+            const byeName = combatants[combatants.length - 1].clans.map(c => GameState.getClan(c).name).join(" + ");
+            GameState.addHistory("battle", `${byeName} gets a bye this round (bracket at ${PROVINCE_MAP[provinceId].name})`);
+        }
+
+        GameState.bracketState[bracketId] = bracketState;
+
+        const pairNames = battles.map(b => {
+            const a = b.attacker.clans.map(c => GameState.getClan(c).name).join(" + ");
+            const d = b.defender.clans.map(c => GameState.getClan(c).name).join(" + ");
+            return `${a} vs ${d}`;
+        }).join(" | ");
+        GameState.addHistory("battle",
+            `Bracket at ${PROVINCE_MAP[provinceId].name}: ${pairNames}${bracketState.byeBlock ? " (+ bye)" : ""}`);
+
+        return battles[0]; // Return first battle (for backward compat with _createWarRecord)
     },
 
     // ============================================================
@@ -210,22 +246,50 @@ const BattleSystem = {
         // Loser casualties: higher when outnumbered. Base 40%, scales with ratio, no cap (can lose everything)
         const loserCasualtyRate = Math.min(1.0, 0.40 * Math.max(ratio, 1));
 
-        // Apply winner casualties
+        // Check if this battle is part of a parallel bracket
+        const bracketId = battle.bracketId;
+        const bs = bracketId && GameState.bracketState && GameState.bracketState[bracketId];
+
+        // isBracketChain = true if there are more rounds to play after this one
+        // We check BEFORE removing this battle from the list
+        let isBracketChain = false;
+        if (bs) {
+            const remainingBattles = bs.activeBattleIds.filter(id => id !== battle.id);
+            const totalWinners = bs.resolvedWinners.length + 1; // +1 for this winner
+            const totalNextRound = totalWinners + (bs.byeBlock ? 1 : 0);
+            // More rounds needed if: other fights still active, or next round has 2+ combatants, or province owner waits
+            isBracketChain = remainingBattles.length > 0 || totalNextRound >= 2 || !!bs.provinceOwnerTroops;
+        }
+
+        // Carry forward any deferred casualties from previous bracket rounds
+        const deferredCasualties = { ...(battle.deferredCasualties || {}) };
+        // Track original (pre-casualty) troop counts for bracket preservation
+        const originalTroops = battle.originalTroops || { ...winners.armyBreakdown };
+
+        // Apply winner casualties (rounded to nearest 10)
         const winnerSurviving = {};
         let totalWinnerCasualties = 0;
         for (const [clanId, troops] of Object.entries(winners.armyBreakdown)) {
-            const casualties = Math.floor(troops * winnerCasualtyRate);
+            const casualties = roundTo10(Math.floor(troops * winnerCasualtyRate));
             totalWinnerCasualties += casualties;
             winnerSurviving[clanId] = troops - casualties;
-            ArmySystem.addCasualties(clanId, casualties);
+
+            if (isBracketChain) {
+                // Bracket: defer winner casualties — they fight next round at full strength
+                deferredCasualties[clanId] = (deferredCasualties[clanId] || 0) + casualties;
+            } else {
+                // Final battle: apply all deferred + current casualties
+                const totalDeferred = (deferredCasualties[clanId] || 0) + casualties;
+                ArmySystem.addCasualties(clanId, totalDeferred);
+            }
         }
 
-        // Apply loser casualties — survivors retreat
+        // Apply loser casualties — survivors retreat (always applied, rounded to nearest 10)
         const loserSurviving = {};
         let totalLoserCasualties = 0;
         let totalLoserSurvivors = 0;
         for (const [clanId, troops] of Object.entries(losers.armyBreakdown)) {
-            const casualties = Math.floor(troops * loserCasualtyRate);
+            const casualties = roundTo10(Math.floor(troops * loserCasualtyRate));
             totalLoserCasualties += casualties;
             const surviving = troops - casualties;
             ArmySystem.addCasualties(clanId, casualties);
@@ -243,45 +307,35 @@ const BattleSystem = {
             this._startRetreat(battle.province, losers.clans, loserSurviving);
         }
 
-        // Check what happens next
-        const waiting = battle.waitingAttackers;
-        const hasOwner = battle.provinceOwnerTroops;
+        // Post round result to Discord if this battle has a linked war record
+        const dbWarId = battle.dbWarId || (bracketId && GameState.bracketWarIds && GameState.bracketWarIds[bracketId]);
 
-        if (waiting.length > 0) {
-            // Chain battle: winner fights next in queue
-            const next = waiting.shift();
-            const remainingWaiting = [...waiting];
+        // Handle bracket progression
+        if (bs) {
+            // Remove this battle from active list
+            bs.activeBattleIds = bs.activeBattleIds.filter(id => id !== battle.id);
 
-            const winnerSide = {
+            // Add winner to resolved list (at full strength for next round)
+            bs.resolvedWinners.push({
                 clans: winners.clans,
-                armyBreakdown: { ...winnerSurviving }
-            };
-
-            const newBattle = this.createBattle(battle.province, winnerSide, next, {
-                isSanryo: true,
-                bracketRound: (battle.bracketRound || 0) + 1,
-                bracketId: battle.bracketId,
-                waitingAttackers: remainingWaiting,
-                provinceOwnerTroops: hasOwner
+                armyBreakdown: { ...originalTroops },
+                deferredCasualties: { ...deferredCasualties },
+                originalTroops: { ...originalTroops },
             });
 
-            GameState.addHistory("battle",
-                `${winnerNames.join(" + ")} wins! Next: bracket round ${newBattle.bracketRound}`);
+            // Post bracket round result to Discord
+            if (dbWarId) {
+                this._postBracketRoundResult(dbWarId, bs.round, winnerNames.join(" + "), loserNames.join(" + "));
+            }
 
-        } else if (hasOwner) {
-            const winnerSide = {
-                clans: winners.clans,
-                armyBreakdown: { ...winnerSurviving }
-            };
-
-            this.createBattle(battle.province, winnerSide, hasOwner, {
-                isSanryo: false,
-                bracketRound: null,
-                bracketId: battle.bracketId
-            });
-
-            GameState.addHistory("battle",
-                `${winnerNames.join(" + ")} wins the bracket! Now fights ${hasOwner.clans.map(c => GameState.getClan(c).name).join(" + ")} for ${provData.name}`);
+            // Check if all battles in this round are done
+            if (bs.activeBattleIds.length === 0) {
+                // All parallel fights resolved — create next round
+                this._advanceBracket(bracketId, dbWarId);
+            } else {
+                GameState.addHistory("battle",
+                    `${winnerNames.join(" + ")} wins! Waiting for other bracket fights to finish...`);
+            }
 
         } else {
             // Final resolution - winner takes/keeps province
@@ -309,6 +363,11 @@ const BattleSystem = {
                 `${this.getBattleIcon(battle.terrain)} ${battle.battleType} at ${provData.name}: ` +
                 `${winnerNames.join(" + ")} victorious!${retreatMsg}${protectedMsg} ` +
                 `Winner casualties: ${totalWinnerCasualties}, Loser casualties: ${totalLoserCasualties}`);
+
+            // Report final result to Discord
+            if (dbWarId) {
+                this._reportWarResult(dbWarId, winnerNames.join(" + "), loserNames.join(" + "));
+            }
         }
 
         GameState.save();
@@ -320,8 +379,150 @@ const BattleSystem = {
             totalWinnerCasualties,
             totalLoserCasualties,
             retreating: totalLoserSurvivors,
-            hasChainBattle: waiting.length > 0 || !!hasOwner
+            hasChainBattle: isBracketChain,
+            dbWarId,
         };
+    },
+
+    // ============================================================
+    // Bracket Advancement (parallel bracket system)
+    // ============================================================
+
+    _advanceBracket(bracketId, dbWarId) {
+        const bs = GameState.bracketState[bracketId];
+        if (!bs) return;
+
+        const provinceId = bs.provinceId;
+        const provData = PROVINCE_MAP[provinceId];
+
+        // Gather all winners from this round + bye
+        let nextRoundCombatants = [...bs.resolvedWinners];
+        if (bs.byeBlock) {
+            nextRoundCombatants.push({
+                clans: bs.byeBlock.clans,
+                armyBreakdown: { ...bs.byeBlock.armyBreakdown },
+                deferredCasualties: {},
+                originalTroops: { ...bs.byeBlock.armyBreakdown },
+            });
+        }
+
+        // If only 1 winner left — they won the bracket
+        if (nextRoundCombatants.length <= 1) {
+            const bracketWinner = nextRoundCombatants[0];
+
+            if (bs.provinceOwnerTroops) {
+                // Winner fights province owner (final fight)
+                const winnerSide = {
+                    clans: bracketWinner.clans,
+                    armyBreakdown: { ...bracketWinner.originalTroops },
+                };
+
+                this.createBattle(provinceId, winnerSide, bs.provinceOwnerTroops, {
+                    isSanryo: false,
+                    bracketRound: null,
+                    bracketId,
+                    deferredCasualties: bracketWinner.deferredCasualties,
+                    originalTroops: bracketWinner.originalTroops,
+                });
+
+                const ownerNames = bs.provinceOwnerTroops.clans.map(c => GameState.getClan(c).name).join(" + ");
+                const winNames = bracketWinner.clans.map(c => GameState.getClan(c).name).join(" + ");
+                GameState.addHistory("battle",
+                    `${winNames} wins the bracket! Now fights ${ownerNames} for ${provData.name}`);
+            } else {
+                // Bracket winner claims province — apply all deferred casualties
+                const province = GameState.provinces[provinceId];
+                for (const [clanId, troops] of Object.entries(bracketWinner.originalTroops)) {
+                    const deferred = bracketWinner.deferredCasualties[clanId] || 0;
+                    const surviving = Math.max(0, troops - deferred);
+                    ArmySystem.addCasualties(clanId, deferred);
+                    if (surviving > 0) {
+                        province.armies[clanId] = (province.armies[clanId] || 0) + surviving;
+                    }
+                }
+
+                if (GameState.isProtectedProvince(provinceId)) {
+                    province.owner = GameState.getProtectedOwner(provinceId);
+                } else {
+                    province.owner = bracketWinner.clans[0];
+                }
+
+                this._processPendingAttacks(provinceId);
+
+                const winNames = bracketWinner.clans.map(c => GameState.getClan(c).name).join(" + ");
+                GameState.addHistory("battle",
+                    `${winNames} wins the bracket and claims ${provData.name}!`);
+
+                // Report final result to Discord
+                if (dbWarId) {
+                    this._reportWarResult(dbWarId, winNames, "all challengers");
+                }
+            }
+
+            // Clean up bracket state
+            delete GameState.bracketState[bracketId];
+            return;
+        }
+
+        // Multiple winners → start next round
+        bs.round++;
+        bs.activeBattleIds = [];
+        bs.resolvedWinners = [];
+        bs.byeBlock = null;
+
+        // Shuffle winners for fair pairing
+        for (let i = nextRoundCombatants.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [nextRoundCombatants[i], nextRoundCombatants[j]] = [nextRoundCombatants[j], nextRoundCombatants[i]];
+        }
+
+        // Create parallel pairs for next round
+        for (let i = 0; i + 1 < nextRoundCombatants.length; i += 2) {
+            const a = nextRoundCombatants[i];
+            const b = nextRoundCombatants[i + 1];
+
+            const sideA = { clans: a.clans, armyBreakdown: { ...a.originalTroops } };
+            const sideB = { clans: b.clans, armyBreakdown: { ...b.originalTroops } };
+
+            // Merge deferred casualties from both sides
+            const mergedDeferred = { ...a.deferredCasualties };
+            for (const [cid, amt] of Object.entries(b.deferredCasualties)) {
+                mergedDeferred[cid] = (mergedDeferred[cid] || 0) + amt;
+            }
+
+            const newBattle = this.createBattle(provinceId, sideA, sideB, {
+                isSanryo: true,
+                bracketRound: bs.round,
+                bracketId,
+                waitingAttackers: [],
+                provinceOwnerTroops: null,
+                deferredCasualties: mergedDeferred,
+                originalTroops: { ...a.originalTroops }, // attacker's original
+            });
+
+            bs.activeBattleIds.push(newBattle.id);
+        }
+
+        // Odd one out gets bye
+        if (nextRoundCombatants.length % 2 === 1) {
+            bs.byeBlock = {
+                clans: nextRoundCombatants[nextRoundCombatants.length - 1].clans,
+                armyBreakdown: { ...nextRoundCombatants[nextRoundCombatants.length - 1].originalTroops },
+            };
+            // Preserve deferred casualties on the bye block too
+            bs.byeBlock.deferredCasualties = nextRoundCombatants[nextRoundCombatants.length - 1].deferredCasualties;
+        }
+
+        const roundNames = bs.activeBattleIds.map(bid => {
+            const b = GameState.battles.find(x => x.id === bid);
+            if (!b) return "?";
+            const a = b.attacker.clans.map(c => GameState.getClan(c).name).join(" + ");
+            const d = b.defender.clans.map(c => GameState.getClan(c).name).join(" + ");
+            return `${a} vs ${d}`;
+        }).join(" | ");
+
+        GameState.addHistory("battle",
+            `Bracket round ${bs.round} at ${provData.name}: ${roundNames}`);
     },
 
     // ============================================================
@@ -585,15 +786,35 @@ const BattleSystem = {
     },
 
     // Create a war record in the DB (triggers Discord channel creation)
+    // For bracket rounds > 1, skip — they share the same war channel as round 1
     async _createWarRecord(battle, provData) {
         if (!API.enabled) return;
+
+        // If this is a subsequent bracket round, don't create a new war record
+        if (battle.bracketRound && battle.bracketRound > 1 && battle.bracketId) {
+            const existingWarId = GameState.bracketWarIds && GameState.bracketWarIds[battle.bracketId];
+            if (existingWarId) {
+                battle.dbWarId = existingWarId;
+                console.log("[BattleSystem] Bracket round", battle.bracketRound, "— reusing war ID", existingWarId);
+                return;
+            }
+        }
+        // Also skip non-bracket chain fights (e.g. bracket winner vs province owner)
+        if (!battle.bracketRound && battle.bracketId) {
+            const existingWarId = GameState.bracketWarIds && GameState.bracketWarIds[battle.bracketId];
+            if (existingWarId) {
+                battle.dbWarId = existingWarId;
+                console.log("[BattleSystem] Final bracket fight — reusing war ID", existingWarId);
+                return;
+            }
+        }
+
         try {
             // Build war_data with clan info for the Discord channel
             const buildSide = (side) => {
                 return side.clans.map(clanId => {
                     const clan = GameState.getClan(clanId);
                     const daimyo = clan && clan.daimyo;
-                    // Look up daimyo discord ID from linked accounts (server-side handles this)
                     return {
                         clanId,
                         name: clan ? clan.name : clanId,
@@ -608,11 +829,7 @@ const BattleSystem = {
                 ...buildSide(battle.defender),
             ];
 
-            // Discord ID resolution is handled server-side in POST /wars
-
             // Include waiting clans for bracket display
-            // waitingAttackers = non-owner clans waiting their turn
-            // provinceOwnerTroops = province owner who fights the bracket winner
             const allWaiting = [...(battle.waitingAttackers || [])];
             if (battle.provinceOwnerTroops) {
                 allWaiting.push(battle.provinceOwnerTroops);
@@ -630,13 +847,20 @@ const BattleSystem = {
                 });
             }).flat();
 
+            // For bracket wars, include ALL clans (sides + waiting) so the channel includes everyone
+            let allSides = sides;
+            if (waitingClans.length > 0) {
+                allSides = [...sides, ...waitingClans];
+            }
+
             const isBracket = battle.bracketRound || waitingClans.length > 0;
 
             const warData = {
                 provinceName: provData.name,
                 battleType: battle.battleType,
                 terrain: battle.terrain,
-                sides,
+                sides: allSides, // All clans get added to the channel
+                activeSides: sides, // Just the two fighting now (for display)
                 battleId: battle.id,
                 week: battle.week,
                 bracketRound: battle.bracketRound || null,
@@ -645,9 +869,37 @@ const BattleSystem = {
                 isBracket: isBracket || false,
             };
 
-            await API.createWar(battle.province, warData);
+            const result = await API.createWar(battle.province, warData);
+            if (result && result.warId) {
+                battle.dbWarId = result.warId;
+                // Track bracket → war ID mapping so subsequent rounds reuse it
+                if (battle.bracketId) {
+                    if (!GameState.bracketWarIds) GameState.bracketWarIds = {};
+                    GameState.bracketWarIds[battle.bracketId] = result.warId;
+                }
+            }
         } catch (err) {
             console.warn("[BattleSystem] Failed to create war record:", err.message);
+        }
+    },
+
+    // Post a bracket round result to the existing war channel
+    async _postBracketRoundResult(warId, round, winnerName, loserName) {
+        if (!API.enabled) return;
+        try {
+            await API.postBracketRound(warId, { round, winner: winnerName, loser: loserName });
+        } catch (err) {
+            console.warn("[BattleSystem] Failed to post bracket round result:", err.message);
+        }
+    },
+
+    // Report final war result to Discord
+    async _reportWarResult(warId, winnerName, loserName) {
+        if (!API.enabled) return;
+        try {
+            await API.reportWarResult(warId, winnerName, loserName);
+        } catch (err) {
+            console.warn("[BattleSystem] Failed to report war result:", err.message);
         }
     }
 };
