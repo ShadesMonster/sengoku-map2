@@ -93,10 +93,13 @@ const API = {
                 const existing = CLAN_FAMILIES[clanKey];
                 let leader;
 
+                const isImperial = clanKey.toLowerCase().replace(/_/g, ' ') === 'imperial court';
+                const leaderFallback = isImperial ? 'Emperor' : 'Daimyo';
+
                 if (fam.leader) {
                     leader = {
                         id: existing?.leader?.id || `${clanKey.replace(/\s+/g, '_')}_daimyo`,
-                        name: fam.leader.name || (existing?.leader?.name || 'Daimyo'),
+                        name: fam.leader.name || (existing?.leader?.name || leaderFallback),
                         title: fam.leader.title || (existing?.leader?.title || ''),
                         gender: existing?.leader?.gender || 'male',
                         robloxId: fam.leader.robloxId || (existing?.leader?.robloxId || DEFAULT_ROBLOX_ID),
@@ -108,7 +111,7 @@ const API = {
                     const clan = GameState.clans[clanKey];
                     leader = {
                         id: `${clanKey.replace(/\s+/g, '_')}_daimyo`,
-                        name: clan ? clan.name + ' Daimyo' : 'Daimyo',
+                        name: clan ? clan.name + ' ' + leaderFallback : leaderFallback,
                         title: '',
                         gender: 'male',
                         robloxId: DEFAULT_ROBLOX_ID,
@@ -138,10 +141,12 @@ const API = {
             for (const clanKey of Object.keys(GameState.clans)) {
                 if (!CLAN_FAMILIES[clanKey]) {
                     const clan = GameState.clans[clanKey];
+                    const placeholderImperial = clanKey.toLowerCase().replace(/_/g, ' ') === 'imperial court';
+                    const placeholderTitle = placeholderImperial ? 'Emperor' : 'Daimyo';
                     CLAN_FAMILIES[clanKey] = {
                         leader: {
                             id: `${clanKey.replace(/\s+/g, '_')}_daimyo`,
-                            name: clan.daimyo?.rpName || clan.name + ' Daimyo',
+                            name: clan.daimyo?.rpName || clan.name + ' ' + placeholderTitle,
                             title: '',
                             gender: 'male',
                             robloxId: clan.daimyo?.robloxId || DEFAULT_ROBLOX_ID,

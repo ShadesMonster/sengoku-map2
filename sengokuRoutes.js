@@ -135,10 +135,11 @@ module.exports = function createSengokuRouter(pool) {
         if (clan.daimyo_user_id) {
             const rpName = clan.daimyo_rp_name;
             const username = clan.daimyo_username;
+            const isImperial = clan.name && clan.name.toLowerCase() === 'imperial court';
             leader = {
-                name: rpName || username || 'Daimyo',
+                name: rpName || username || (isImperial ? 'Emperor' : 'Daimyo'),
                 robloxId: Number(clan.daimyo_user_id),
-                title: 'Daimyo of ' + clan.name,
+                title: isImperial ? 'Emperor' : ('Daimyo of ' + clan.name),
             };
         }
 

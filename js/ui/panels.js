@@ -524,8 +524,11 @@ const ClanPanel = {
         }
 
         const homeProv = PROVINCE_MAP[clan.castleProvince];
-        const title = person.title || (isLeader ? "Daimyo" : "");
-        const role = isLeader ? "Daimyo" : "Family Member";
+        const currentClanId = this.currentClan || "";
+        const isImperial = currentClanId.toLowerCase().replace(/_/g, ' ') === "imperial court";
+        const leaderTitle = isImperial ? "Emperor" : "Daimyo";
+        const title = person.title || (isLeader ? leaderTitle : "");
+        const role = isLeader ? leaderTitle : "Family Member";
 
         document.getElementById("clan-portrait-area").innerHTML = `
             ${backLink}
@@ -697,7 +700,8 @@ const ClanPanel = {
                             <select id="popup-my-member" style="padding:4px 6px;background:var(--bg-card);border:1px solid var(--border);color:var(--text-primary);border-radius:4px;font-size:11px">
                                 ${myUnmarried.map(m => {
                                     const icon = m.gender === "male" ? "&#9794;" : "&#9792;";
-                                    const tag = m.title ? " (Daimyo)" : "";
+                                    const myIsImperial = myClan && myClan.toLowerCase().replace(/_/g, ' ') === "imperial court";
+                                    const tag = m.title ? ` (${myIsImperial ? "Emperor" : "Daimyo"})` : "";
                                     return `<option value="${m.id}">${icon} ${m.name}${tag}</option>`;
                                 }).join("")}
                             </select>

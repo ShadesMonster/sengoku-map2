@@ -87,13 +87,15 @@ const Admin = {
         if (!select) return;
 
         const family = CLAN_FAMILIES[clanId];
+        const isImperialClan = clanId && clanId.toLowerCase().replace(/_/g, ' ') === 'imperial court';
+        const leaderLabel = isImperialClan ? 'Emperor' : 'Daimyo';
         if (!family) {
-            select.innerHTML = '<option value="">Parent: Daimyo (default)</option>';
+            select.innerHTML = `<option value="">Parent: ${leaderLabel} (default)</option>`;
             return;
         }
 
         const leader = family.leader;
-        let options = `<option value="">Parent: ${leader.name} (Daimyo)</option>`;
+        let options = `<option value="">Parent: ${leader.name} (${leaderLabel})</option>`;
 
         // Add all living children as potential parents
         const children = family.children || [];
@@ -696,8 +698,9 @@ const Admin = {
                 if (result && result.id) {
                     // Add to local CLAN_FAMILIES immediately
                     if (!CLAN_FAMILIES[clanId]) {
+                        const addIsImperial = clanId.toLowerCase().replace(/_/g, ' ') === 'imperial court';
                         CLAN_FAMILIES[clanId] = {
-                            leader: { id: `${clanId.replace(/\s+/g, '_')}_daimyo`, name: 'Daimyo', title: '', gender: 'male', robloxId: DEFAULT_ROBLOX_ID },
+                            leader: { id: `${clanId.replace(/\s+/g, '_')}_daimyo`, name: addIsImperial ? 'Emperor' : 'Daimyo', title: '', gender: 'male', robloxId: DEFAULT_ROBLOX_ID },
                             children: []
                         };
                     }
@@ -787,15 +790,17 @@ const Admin = {
         const isLeader = family?.leader?.id === personId;
 
         if (isLeader) {
-            // === Daimyo death — requires successor selection ===
+            // === Leader death — requires successor selection ===
+            const isImperialKill = clanId && clanId.toLowerCase().replace(/_/g, ' ') === 'imperial court';
+            const leaderRole = isImperialKill ? 'Emperor' : 'Daimyo';
             const children = family.children.filter(c => !c.deceased);
             if (children.length === 0) {
-                if (!confirm(`Kill ${person.name} (Daimyo)? No children available as successor — the clan will have no proper leader.`)) return;
+                if (!confirm(`Kill ${person.name} (${leaderRole})? No children available as successor — the clan will have no proper leader.`)) return;
             } else {
                 // Build successor selection
                 const names = children.map((c, i) => `${i + 1}. ${c.name} (${c.gender})`).join('\n');
                 const choice = prompt(
-                    `Kill ${person.name} (Daimyo of ${clanName})?\n\n` +
+                    `Kill ${person.name} (${leaderRole} of ${clanName})?\n\n` +
                     `Select a successor:\n${names}\n\n` +
                     `Enter the number of the successor:`,
                     '1'
@@ -810,7 +815,7 @@ const Admin = {
 
                 const successor = children[idx];
 
-                // Move old daimyo to deceased members (preserving their marriage for parent lookup)
+                // Move old leader to deceased members (preserving their marriage for parent lookup)
                 if (!GameState.deceasedMembers[clanId]) GameState.deceasedMembers[clanId] = [];
                 GameState.deceasedMembers[clanId].push({
                     id: person.id,
@@ -822,7 +827,7 @@ const Admin = {
                     wasLeader: true,
                 });
 
-                // Set children's parentId to the old daimyo (so they show as siblings under the deceased parent)
+                // Set children's parentId to the old leader (so they show as siblings under the deceased parent)
                 family.children.forEach(c => {
                     if (!c.parentId) c.parentId = person.id;
                 });
@@ -831,23 +836,23 @@ const Admin = {
                 family.leader = {
                     id: successor.id,
                     name: successor.name,
-                    title: 'Daimyo of ' + clanName,
+                    title: (isImperialKill ? 'Emperor' : 'Daimyo of ' + clanName),
                     gender: successor.gender,
                     robloxId: successor.robloxId || DEFAULT_ROBLOX_ID,
-                    parentId: person.id, // successor's parent is the old daimyo
+                    parentId: person.id, // successor's parent is the old leader
                 };
 
                 // Remove successor from children list (they're the leader now)
                 family.children = family.children.filter(c => c.id !== successor.id);
 
-                // Clear pending proposals for the dead daimyo
+                // Clear pending proposals for the dead leader
                 GameState.allianceRequests = GameState.allianceRequests.filter(r =>
                     r.fromPerson !== personId && r.toPerson !== personId
                 );
 
                 GameState.addHistory("system",
-                    `${person.name} of ${clanName} has died. ${successor.name} succeeds as Daimyo.`);
-                Notifications.show(`${person.name} has died. ${successor.name} is now Daimyo!`, "warning");
+                    `${person.name} of ${clanName} has died. ${successor.name} succeeds as ${leaderRole}.`);
+                Notifications.show(`${person.name} has died. ${successor.name} is now ${leaderRole}!`, "warning");
                 GameState.save();
                 this.renderFamilyList();
                 if (ClanPanel.currentClan === clanId) {
