@@ -351,30 +351,40 @@ const MoveSystem = {
         return { battles: 0 };
     },
 
-    // Find groups of hostile (non-allied) clans
+    // Find groups of hostile (non-allied) clans using union-find
+    // so transitive alliances are handled correctly (A-B allied, B-C allied => A,B,C grouped)
     _findHostileGroups(clanIds) {
         if (clanIds.length <= 1) return [clanIds];
 
-        // Build alliance groups using union-find approach
-        const groups = [];
-        const assigned = new Set();
+        // Union-find with path compression
+        const parent = {};
+        clanIds.forEach(id => { parent[id] = id; });
 
-        clanIds.forEach(cid => {
-            if (assigned.has(cid)) return;
-            const group = [cid];
-            assigned.add(cid);
+        function find(x) {
+            if (parent[x] !== x) parent[x] = find(parent[x]);
+            return parent[x];
+        }
+        function union(a, b) {
+            parent[find(a)] = find(b);
+        }
 
-            // Find all unassigned clans allied with this one
-            clanIds.forEach(otherId => {
-                if (otherId !== cid && !assigned.has(otherId) && GameState.areAllied(cid, otherId)) {
-                    group.push(otherId);
-                    assigned.add(otherId);
+        // Merge all allied pairs
+        for (let i = 0; i < clanIds.length; i++) {
+            for (let j = i + 1; j < clanIds.length; j++) {
+                if (GameState.areAllied(clanIds[i], clanIds[j])) {
+                    union(clanIds[i], clanIds[j]);
                 }
-            });
+            }
+        }
 
-            groups.push(group);
+        // Collect groups by root
+        const groupMap = {};
+        clanIds.forEach(cid => {
+            const root = find(cid);
+            if (!groupMap[root]) groupMap[root] = [];
+            groupMap[root].push(cid);
         });
 
-        return groups;
+        return Object.values(groupMap);
     }
 };

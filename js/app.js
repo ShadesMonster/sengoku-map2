@@ -1,5 +1,5 @@
 // Main Application - Initialization and coordination
-const OVERLAY_PANEL_IDS = ["history-panel", "admin-panel", "faq-panel", "wars-panel"];
+const OVERLAY_PANEL_IDS = ["history-panel", "admin-panel", "faq-panel", "wars-panel", "leaderboard-panel"];
 
 function closeAllOverlays(exceptId) {
     OVERLAY_PANEL_IDS.forEach(id => {
@@ -38,6 +38,7 @@ const App = {
         Admin.init();
         FAQ.init();
         WarPanel.init();
+        Leaderboard.init();
 
         // Update all UI
         this.updateUI();

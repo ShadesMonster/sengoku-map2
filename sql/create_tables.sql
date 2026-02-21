@@ -10,6 +10,7 @@
 CREATE TABLE IF NOT EXISTS roblox_clan_families (
     id INT AUTO_INCREMENT PRIMARY KEY,
     clan_id INT NOT NULL,                           -- References roblox_clans.clan_id
+    parent_id INT DEFAULT NULL,                     -- FK to self (parent in family tree)
     roblox_user_id BIGINT DEFAULT NULL,             -- Roblox user ID (for profile picture)
     character_name VARCHAR(100) NOT NULL,            -- RP character name
     role ENUM('leader', 'child') NOT NULL DEFAULT 'child',
@@ -19,7 +20,9 @@ CREATE TABLE IF NOT EXISTS roblox_clan_families (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_clan_id (clan_id),
-    INDEX idx_roblox_user (roblox_user_id)
+    INDEX idx_roblox_user (roblox_user_id),
+    INDEX idx_parent (parent_id),
+    FOREIGN KEY (parent_id) REFERENCES roblox_clan_families(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- Marriages between clan family members (= alliances).

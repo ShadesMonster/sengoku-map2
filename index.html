@@ -24,6 +24,7 @@
         </div>
         <div id="top-bar-right">
             <div id="auth-container"></div>
+            <button id="btn-leaderboard" class="top-btn" title="Clan Leaderboard">🏆</button>
             <button id="btn-wars" class="top-btn" title="Battles This Week">⚔️</button>
             <button id="btn-history" class="top-btn" title="History Log">📜</button>
             <button id="btn-admin" class="top-btn hidden" title="Admin Panel">⚙️</button>
@@ -467,6 +468,17 @@
             </div>
         </div>
 
+        <!-- Leaderboard & Stats Dashboard -->
+        <div id="leaderboard-panel" class="overlay-panel hidden">
+            <div class="overlay-header">
+                <h2>Clan Leaderboard</h2>
+                <button class="overlay-close">&times;</button>
+            </div>
+            <div class="overlay-content">
+                <div id="leaderboard-content"></div>
+            </div>
+        </div>
+
         <!-- History Log -->
         <div id="history-panel" class="overlay-panel hidden">
             <div class="overlay-header">
@@ -617,6 +629,7 @@
     <script src="js/ui/historyLog.js"></script>
     <script src="js/ui/faq.js"></script>
     <script src="js/ui/warPanel.js"></script>
+    <script src="js/ui/leaderboard.js"></script>
     <script src="js/app.js"></script>
 </body>
 </html>
