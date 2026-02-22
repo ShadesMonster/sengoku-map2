@@ -11,7 +11,7 @@ const CLAN_DEFAULTS = {
     chosokabe:        { japaneseName: "長宗我部", color: "#44ccaa" },
     date:             { japaneseName: "伊達",     color: "#cc44cc" },
     imagawa:          { japaneseName: "今川",     color: "#88cc44" },
-    "imperial court": { japaneseName: "朝廷",     color: "#d4af37" },
+    atama:            { japaneseName: "朝廷",     color: "#d4af37" },
     soma:             { japaneseName: "相馬",     color: "#cc8844" },
 };
 
@@ -38,6 +38,6 @@ const CLAN_FAMILIES = {
     chosokabe:        { leader: { id: "chosokabe_daimyo", name: "Chosokabe Daimyo", title: "", gender: "male", robloxId: DEFAULT_ROBLOX_ID }, children: [] },
     date:             { leader: { id: "date_daimyo", name: "Date Daimyo", title: "", gender: "male", robloxId: DEFAULT_ROBLOX_ID }, children: [] },
     imagawa:          { leader: { id: "imagawa_daimyo", name: "Imagawa Daimyo", title: "", gender: "male", robloxId: DEFAULT_ROBLOX_ID }, children: [] },
-    "imperial court": { leader: { id: "imperial_court_daimyo", name: "Emperor", title: "Son of Heaven", gender: "male", robloxId: DEFAULT_ROBLOX_ID }, children: [] },
+    atama:            { leader: { id: "atama_daimyo", name: "Emperor", title: "Son of Heaven", gender: "male", robloxId: DEFAULT_ROBLOX_ID }, children: [] },
     soma:             { leader: { id: "soma_daimyo", name: "Soma Daimyo", title: "", gender: "male", robloxId: DEFAULT_ROBLOX_ID }, children: [] },
 };

@@ -135,7 +135,7 @@ module.exports = function createSengokuRouter(pool) {
         if (clan.daimyo_user_id) {
             const rpName = clan.daimyo_rp_name;
             const username = clan.daimyo_username;
-            const isImperial = clan.name && clan.name.toLowerCase() === 'imperial court';
+            const isImperial = !!clan.is_imperial;
             leader = {
                 name: rpName || username || (isImperial ? 'Emperor' : 'Daimyo'),
                 robloxId: Number(clan.daimyo_user_id),
@@ -155,6 +155,8 @@ module.exports = function createSengokuRouter(pool) {
             gender: row.gender,
             robloxId: row.roblox_user_id ? Number(row.roblox_user_id) : null,
             dbId: row.id,
+            parentId: row.parent_id || null,
+            title: row.title || null,
         }));
 
         return {
@@ -169,7 +171,7 @@ module.exports = function createSengokuRouter(pool) {
     // ============================================================
     router.post('/families', async (req, res) => {
         try {
-            const { clan, roblox_user_id, character_name, gender } = req.body;
+            const { clan, roblox_user_id, character_name, gender, parent_id } = req.body;
 
             if (!clan || !character_name || !gender) {
                 return res.status(400).json({ error: 'Required: clan, character_name, gender' });
@@ -202,9 +204,20 @@ module.exports = function createSengokuRouter(pool) {
             );
             const nextOrder = orderRows[0].next_order;
 
+            // Validate parent_id if provided
+            if (parent_id) {
+                const [parentRows] = await pool.query(
+                    'SELECT 1 FROM roblox_clan_families WHERE id = ? AND clan_id = ?',
+                    [parent_id, dbClanId]
+                );
+                if (!parentRows.length) {
+                    return res.status(400).json({ error: 'Parent not found in this clan' });
+                }
+            }
+
             const [result] = await pool.query(
-                "INSERT INTO roblox_clan_families (clan_id, roblox_user_id, character_name, role, gender, display_order) VALUES (?, ?, ?, 'child', ?, ?)",
-                [dbClanId, roblox_user_id || null, character_name, gender, nextOrder]
+                "INSERT INTO roblox_clan_families (clan_id, roblox_user_id, character_name, role, gender, display_order, parent_id) VALUES (?, ?, ?, 'child', ?, ?, ?)",
+                [dbClanId, roblox_user_id || null, character_name, gender, nextOrder, parent_id || null]
             );
 
             res.json({
@@ -245,12 +258,15 @@ module.exports = function createSengokuRouter(pool) {
                 }
             }
 
+            const newParentId = req.body.parent_id !== undefined ? req.body.parent_id : member.parent_id;
+
             await pool.query(
-                'UPDATE roblox_clan_families SET character_name = ?, roblox_user_id = ?, gender = ? WHERE id = ?',
+                'UPDATE roblox_clan_families SET character_name = ?, roblox_user_id = ?, gender = ?, parent_id = ? WHERE id = ?',
                 [
                     req.body.character_name || member.character_name,
                     newRobloxId,
                     req.body.gender || member.gender,
+                    newParentId,
                     id
                 ]
             );
@@ -547,6 +563,693 @@ module.exports = function createSengokuRouter(pool) {
         } catch (err) {
             console.error('[Sengoku] GET /clans error:', err);
             res.status(500).json({ error: 'Database error: ' + err.message });
+        }
+    });
+
+    // ============================================================
+    //  IN-GAME FAMILY ENDPOINTS
+    //  Used by FamilyService.lua via HttpService
+    // ============================================================
+
+    // ---- API key auth middleware for in-game routes ----
+    function requireApiKey(req, res, next) {
+        const key = req.headers['x-api-key'];
+        if (!key || key !== 'ShogunateRBX_k8m3p9x2v7n4j1q6') {
+            return res.status(401).json({ error: 'Unauthorized' });
+        }
+        next();
+    }
+
+    // GET /ingame/family/:userId  -  Get a player's family tree
+    router.get('/ingame/family/:userId', requireApiKey, async (req, res) => {
+        try {
+            const userId = parseInt(req.params.userId);
+            if (!userId) return res.status(400).json({ success: false, error: 'Invalid userId' });
+
+            // Check family_membership first
+            const [membershipRows] = await pool.query(
+                'SELECT fg.*, fm.family_member_id FROM roblox_family_membership fm JOIN roblox_family_groups fg ON fg.id = fm.family_group_id WHERE fm.roblox_user_id = ?',
+                [userId]
+            );
+
+            if (!membershipRows.length) {
+                return res.json({ success: true, family: null });
+            }
+
+            const group = membershipRows[0];
+            const familyGroupId = group.id;
+
+            // Get all members of this family
+            const [members] = await pool.query(
+                'SELECT * FROM roblox_clan_families WHERE family_group_id = ? ORDER BY display_order ASC, id ASC',
+                [familyGroupId]
+            );
+
+            // Get marriages involving any member of this family
+            const memberIds = members.map(m => m.id);
+            let marriages = [];
+            if (memberIds.length > 0) {
+                const placeholders = memberIds.map(() => '?').join(',');
+                const [marriageRows] = await pool.query(
+                    `SELECT m.*,
+                            p1.character_name as person1_name, p1.gender as person1_gender,
+                            p1.roblox_user_id as person1_roblox, p1.family_group_id as person1_fg,
+                            p2.character_name as person2_name, p2.gender as person2_gender,
+                            p2.roblox_user_id as person2_roblox, p2.family_group_id as person2_fg
+                     FROM roblox_clan_marriages m
+                     JOIN roblox_clan_families p1 ON p1.id = m.person1_id
+                     JOIN roblox_clan_families p2 ON p2.id = m.person2_id
+                     WHERE (m.person1_id IN (${placeholders}) OR m.person2_id IN (${placeholders}))
+                       AND m.status IN ('proposed', 'accepted')`,
+                    [...memberIds, ...memberIds]
+                );
+                marriages = marriageRows.map(row => ({
+                    id: row.id,
+                    status: row.status,
+                    person1: { id: row.person1_id, name: row.person1_name, gender: row.person1_gender, robloxId: row.person1_roblox ? Number(row.person1_roblox) : null, familyGroupId: row.person1_fg },
+                    person2: { id: row.person2_id, name: row.person2_name, gender: row.person2_gender, robloxId: row.person2_roblox ? Number(row.person2_roblox) : null, familyGroupId: row.person2_fg },
+                    created_at: row.created_at,
+                }));
+            }
+
+            const isLeader = group.leader_user_id === userId;
+
+            res.json({
+                success: true,
+                family: {
+                    id: familyGroupId,
+                    name: group.name,
+                    leaderUserId: Number(group.leader_user_id),
+                    leaderUsername: group.leader_username,
+                    clanId: group.clan_id,
+                    maxMembers: group.max_members,
+                    isClan: group.is_clan ? true : false,
+                    members: members.map(m => ({
+                        id: m.id,
+                        characterName: m.character_name,
+                        gender: m.gender,
+                        robloxUserId: m.roblox_user_id ? Number(m.roblox_user_id) : null,
+                        parentId: m.parent_id || null,
+                        title: m.title || null,
+                        role: m.role,
+                    })),
+                    marriages,
+                },
+                isLeader,
+            });
+        } catch (err) {
+            console.error('[Sengoku] GET /ingame/family error:', err);
+            res.status(500).json({ success: false, error: 'Database error' });
+        }
+    });
+
+    // POST /ingame/family  -  Create a new family group
+    router.post('/ingame/family', requireApiKey, async (req, res) => {
+        try {
+            const { leader_user_id, leader_username, leader_character_name, leader_gender, name } = req.body;
+
+            if (!leader_user_id || !leader_character_name || !leader_gender || !name) {
+                return res.status(400).json({ success: false, error: 'Required: leader_user_id, leader_character_name, leader_gender, name' });
+            }
+            if (!['male', 'female'].includes(leader_gender)) {
+                return res.status(400).json({ success: false, error: 'Gender must be "male" or "female"' });
+            }
+
+            // Check player isn't already in a family
+            const [existing] = await pool.query(
+                'SELECT 1 FROM roblox_family_membership WHERE roblox_user_id = ?',
+                [leader_user_id]
+            );
+            if (existing.length) {
+                return res.status(409).json({ success: false, error: 'Player is already in a family' });
+            }
+
+            const conn = await pool.getConnection();
+            try {
+                await conn.beginTransaction();
+
+                // Create family group
+                const [groupResult] = await conn.query(
+                    'INSERT INTO roblox_family_groups (name, leader_user_id, leader_username, leader_character_name, leader_gender, max_members) VALUES (?, ?, ?, ?, ?, 8)',
+                    [name, leader_user_id, leader_username || null, leader_character_name, leader_gender]
+                );
+                const familyGroupId = groupResult.insertId;
+
+                // Create leader as first family member
+                const [memberResult] = await conn.query(
+                    "INSERT INTO roblox_clan_families (family_group_id, roblox_user_id, character_name, role, gender, display_order) VALUES (?, ?, ?, 'leader', ?, 0)",
+                    [familyGroupId, leader_user_id, leader_character_name, leader_gender]
+                );
+                const memberId = memberResult.insertId;
+
+                // Track membership
+                await conn.query(
+                    'INSERT INTO roblox_family_membership (roblox_user_id, family_group_id, family_member_id) VALUES (?, ?, ?)',
+                    [leader_user_id, familyGroupId, memberId]
+                );
+
+                await conn.commit();
+                res.json({ success: true, familyGroupId, memberId });
+            } catch (err) {
+                await conn.rollback();
+                throw err;
+            } finally {
+                conn.release();
+            }
+        } catch (err) {
+            console.error('[Sengoku] POST /ingame/family error:', err);
+            res.status(500).json({ success: false, error: 'Database error' });
+        }
+    });
+
+    // POST /ingame/family/member  -  Add a child to the family tree
+    router.post('/ingame/family/member', requireApiKey, async (req, res) => {
+        try {
+            const { family_group_id, roblox_user_id, character_name, gender, parent_id } = req.body;
+
+            if (!family_group_id || !character_name || !gender) {
+                return res.status(400).json({ success: false, error: 'Required: family_group_id, character_name, gender' });
+            }
+            if (!['male', 'female'].includes(gender)) {
+                return res.status(400).json({ success: false, error: 'Gender must be "male" or "female"' });
+            }
+
+            // Verify family group exists
+            const [groupRows] = await pool.query(
+                'SELECT * FROM roblox_family_groups WHERE id = ?', [family_group_id]
+            );
+            if (!groupRows.length) {
+                return res.status(404).json({ success: false, error: 'Family not found' });
+            }
+            const group = groupRows[0];
+
+            // Check capacity
+            const [countRows] = await pool.query(
+                'SELECT COUNT(*) as cnt FROM roblox_clan_families WHERE family_group_id = ?',
+                [family_group_id]
+            );
+            if (countRows[0].cnt >= group.max_members) {
+                return res.status(409).json({ success: false, error: 'Family is full (' + group.max_members + ' members max)' });
+            }
+
+            // Check target isn't already in a family
+            if (roblox_user_id) {
+                const [existingMember] = await pool.query(
+                    'SELECT 1 FROM roblox_family_membership WHERE roblox_user_id = ?',
+                    [roblox_user_id]
+                );
+                if (existingMember.length) {
+                    return res.status(409).json({ success: false, error: 'That player is already in a family' });
+                }
+            }
+
+            // Validate parent_id if provided
+            if (parent_id) {
+                const [parentRows] = await pool.query(
+                    'SELECT 1 FROM roblox_clan_families WHERE id = ? AND family_group_id = ?',
+                    [parent_id, family_group_id]
+                );
+                if (!parentRows.length) {
+                    return res.status(400).json({ success: false, error: 'Parent not found in this family' });
+                }
+            }
+
+            // Next display order
+            const [orderRows] = await pool.query(
+                'SELECT COALESCE(MAX(display_order), 0) + 1 as next_order FROM roblox_clan_families WHERE family_group_id = ?',
+                [family_group_id]
+            );
+
+            const conn = await pool.getConnection();
+            try {
+                await conn.beginTransaction();
+
+                const [result] = await conn.query(
+                    "INSERT INTO roblox_clan_families (family_group_id, roblox_user_id, character_name, role, gender, display_order, parent_id) VALUES (?, ?, ?, 'child', ?, ?, ?)",
+                    [family_group_id, roblox_user_id || null, character_name, gender, orderRows[0].next_order, parent_id || null]
+                );
+                const memberId = result.insertId;
+
+                // Track membership if linked to a real player
+                if (roblox_user_id) {
+                    await conn.query(
+                        'INSERT INTO roblox_family_membership (roblox_user_id, family_group_id, family_member_id) VALUES (?, ?, ?)',
+                        [roblox_user_id, family_group_id, memberId]
+                    );
+                }
+
+                await conn.commit();
+                res.json({ success: true, memberId });
+            } catch (err) {
+                await conn.rollback();
+                throw err;
+            } finally {
+                conn.release();
+            }
+        } catch (err) {
+            console.error('[Sengoku] POST /ingame/family/member error:', err);
+            res.status(500).json({ success: false, error: 'Database error' });
+        }
+    });
+
+    // DELETE /ingame/family/member/:id  -  Remove a member from the tree
+    router.delete('/ingame/family/member/:id', requireApiKey, async (req, res) => {
+        try {
+            const id = parseInt(req.params.id);
+            if (!id) return res.status(400).json({ success: false, error: 'Invalid member id' });
+
+            // Check active marriage
+            const [marriageRows] = await pool.query(
+                "SELECT id FROM roblox_clan_marriages WHERE (person1_id = ? OR person2_id = ?) AND status IN ('proposed', 'accepted')",
+                [id, id]
+            );
+            if (marriageRows.length) {
+                return res.status(409).json({ success: false, error: 'Cannot remove: dissolve the marriage first' });
+            }
+
+            // Get member info for cleanup
+            const [memberRows] = await pool.query('SELECT * FROM roblox_clan_families WHERE id = ?', [id]);
+            if (!memberRows.length) {
+                return res.status(404).json({ success: false, error: 'Member not found' });
+            }
+            const member = memberRows[0];
+
+            // Can't remove the leader
+            if (member.role === 'leader') {
+                return res.status(400).json({ success: false, error: 'Cannot remove the family leader' });
+            }
+
+            // Re-parent children to this member's parent (or null)
+            await pool.query(
+                'UPDATE roblox_clan_families SET parent_id = ? WHERE parent_id = ?',
+                [member.parent_id, id]
+            );
+
+            // Remove membership tracking
+            if (member.roblox_user_id) {
+                await pool.query(
+                    'DELETE FROM roblox_family_membership WHERE roblox_user_id = ?',
+                    [member.roblox_user_id]
+                );
+            }
+
+            // Remove the member
+            await pool.query('DELETE FROM roblox_clan_families WHERE id = ?', [id]);
+
+            res.json({ success: true });
+        } catch (err) {
+            console.error('[Sengoku] DELETE /ingame/family/member error:', err);
+            res.status(500).json({ success: false, error: 'Database error' });
+        }
+    });
+
+    // POST /ingame/family/invite  -  Create a pending invite
+    router.post('/ingame/family/invite', requireApiKey, async (req, res) => {
+        try {
+            const { family_group_id, target_user_id, target_username, invited_by, character_name, gender, parent_id } = req.body;
+
+            if (!family_group_id || !target_user_id || !character_name || !gender || !invited_by) {
+                return res.status(400).json({ success: false, error: 'Required: family_group_id, target_user_id, character_name, gender, invited_by' });
+            }
+
+            // Check target doesn't already have a pending invite
+            const [existing] = await pool.query(
+                'SELECT 1 FROM roblox_family_invites WHERE target_user_id = ?', [target_user_id]
+            );
+            if (existing.length) {
+                return res.status(409).json({ success: false, error: 'That player already has a pending invite' });
+            }
+
+            // Check target isn't already in a family
+            const [membership] = await pool.query(
+                'SELECT 1 FROM roblox_family_membership WHERE roblox_user_id = ?', [target_user_id]
+            );
+            if (membership.length) {
+                return res.status(409).json({ success: false, error: 'That player is already in a family' });
+            }
+
+            const [result] = await pool.query(
+                'INSERT INTO roblox_family_invites (family_group_id, target_user_id, target_username, invited_by_user_id, character_name, gender, parent_member_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                [family_group_id, target_user_id, target_username || null, invited_by, character_name, gender, parent_id || null]
+            );
+
+            res.json({ success: true, inviteId: result.insertId });
+        } catch (err) {
+            console.error('[Sengoku] POST /ingame/family/invite error:', err);
+            res.status(500).json({ success: false, error: 'Database error' });
+        }
+    });
+
+    // GET /ingame/family/invite/:userId  -  Get pending invite for a player
+    router.get('/ingame/family/invite/:userId', requireApiKey, async (req, res) => {
+        try {
+            const userId = parseInt(req.params.userId);
+            const [rows] = await pool.query(
+                `SELECT fi.*, fg.name as family_name, fg.leader_username
+                 FROM roblox_family_invites fi
+                 JOIN roblox_family_groups fg ON fg.id = fi.family_group_id
+                 WHERE fi.target_user_id = ?`,
+                [userId]
+            );
+
+            res.json({ success: true, invite: rows.length ? rows[0] : null });
+        } catch (err) {
+            console.error('[Sengoku] GET /ingame/family/invite error:', err);
+            res.status(500).json({ success: false, error: 'Database error' });
+        }
+    });
+
+    // PUT /ingame/family/invite/:userId  -  Accept or decline an invite
+    router.put('/ingame/family/invite/:userId', requireApiKey, async (req, res) => {
+        try {
+            const userId = parseInt(req.params.userId);
+            const { action } = req.body; // 'accept' or 'decline'
+
+            const [inviteRows] = await pool.query(
+                'SELECT * FROM roblox_family_invites WHERE target_user_id = ?', [userId]
+            );
+            if (!inviteRows.length) {
+                return res.status(404).json({ success: false, error: 'No pending invite' });
+            }
+            const invite = inviteRows[0];
+
+            if (action === 'decline') {
+                await pool.query('DELETE FROM roblox_family_invites WHERE id = ?', [invite.id]);
+                return res.json({ success: true, message: 'Invite declined' });
+            }
+
+            if (action !== 'accept') {
+                return res.status(400).json({ success: false, error: 'Action must be accept or decline' });
+            }
+
+            // Check family capacity
+            const [groupRows] = await pool.query('SELECT * FROM roblox_family_groups WHERE id = ?', [invite.family_group_id]);
+            if (!groupRows.length) {
+                await pool.query('DELETE FROM roblox_family_invites WHERE id = ?', [invite.id]);
+                return res.status(404).json({ success: false, error: 'Family no longer exists' });
+            }
+            const group = groupRows[0];
+
+            const [countRows] = await pool.query(
+                'SELECT COUNT(*) as cnt FROM roblox_clan_families WHERE family_group_id = ?',
+                [invite.family_group_id]
+            );
+            if (countRows[0].cnt >= group.max_members) {
+                return res.status(409).json({ success: false, error: 'Family is full' });
+            }
+
+            // Check player isn't already in a family
+            const [membership] = await pool.query(
+                'SELECT 1 FROM roblox_family_membership WHERE roblox_user_id = ?', [userId]
+            );
+            if (membership.length) {
+                await pool.query('DELETE FROM roblox_family_invites WHERE id = ?', [invite.id]);
+                return res.status(409).json({ success: false, error: 'You are already in a family' });
+            }
+
+            const conn = await pool.getConnection();
+            try {
+                await conn.beginTransaction();
+
+                // Next display order
+                const [orderRows] = await conn.query(
+                    'SELECT COALESCE(MAX(display_order), 0) + 1 as next_order FROM roblox_clan_families WHERE family_group_id = ?',
+                    [invite.family_group_id]
+                );
+
+                // Add to family tree
+                const [memberResult] = await conn.query(
+                    "INSERT INTO roblox_clan_families (family_group_id, roblox_user_id, character_name, role, gender, display_order, parent_id) VALUES (?, ?, ?, 'child', ?, ?, ?)",
+                    [invite.family_group_id, userId, invite.character_name, invite.gender, orderRows[0].next_order, invite.parent_member_id]
+                );
+
+                // Track membership
+                await conn.query(
+                    'INSERT INTO roblox_family_membership (roblox_user_id, family_group_id, family_member_id) VALUES (?, ?, ?)',
+                    [userId, invite.family_group_id, memberResult.insertId]
+                );
+
+                // Remove invite
+                await conn.query('DELETE FROM roblox_family_invites WHERE id = ?', [invite.id]);
+
+                await conn.commit();
+                res.json({ success: true, memberId: memberResult.insertId });
+            } catch (err) {
+                await conn.rollback();
+                throw err;
+            } finally {
+                conn.release();
+            }
+        } catch (err) {
+            console.error('[Sengoku] PUT /ingame/family/invite error:', err);
+            res.status(500).json({ success: false, error: 'Database error' });
+        }
+    });
+
+    // DELETE /ingame/family/:familyGroupId  -  Disband a family
+    router.delete('/ingame/family/:familyGroupId', requireApiKey, async (req, res) => {
+        try {
+            const familyGroupId = parseInt(req.params.familyGroupId);
+            if (!familyGroupId) return res.status(400).json({ success: false, error: 'Invalid family group id' });
+
+            const conn = await pool.getConnection();
+            try {
+                await conn.beginTransaction();
+
+                // Remove all memberships
+                await conn.query('DELETE FROM roblox_family_membership WHERE family_group_id = ?', [familyGroupId]);
+
+                // Remove all invites
+                await conn.query('DELETE FROM roblox_family_invites WHERE family_group_id = ?', [familyGroupId]);
+
+                // Dissolve any marriages involving members of this family
+                const [members] = await conn.query(
+                    'SELECT id FROM roblox_clan_families WHERE family_group_id = ?', [familyGroupId]
+                );
+                if (members.length) {
+                    const memberIds = members.map(m => m.id);
+                    const placeholders = memberIds.map(() => '?').join(',');
+                    await conn.query(
+                        `UPDATE roblox_clan_marriages SET status = 'dissolved', resolved_at = NOW()
+                         WHERE (person1_id IN (${placeholders}) OR person2_id IN (${placeholders}))
+                           AND status IN ('proposed', 'accepted')`,
+                        [...memberIds, ...memberIds]
+                    );
+                }
+
+                // Remove all family members
+                await conn.query('DELETE FROM roblox_clan_families WHERE family_group_id = ?', [familyGroupId]);
+
+                // Remove the family group
+                await conn.query('DELETE FROM roblox_family_groups WHERE id = ?', [familyGroupId]);
+
+                await conn.commit();
+                res.json({ success: true });
+            } catch (err) {
+                await conn.rollback();
+                throw err;
+            } finally {
+                conn.release();
+            }
+        } catch (err) {
+            console.error('[Sengoku] DELETE /ingame/family error:', err);
+            res.status(500).json({ success: false, error: 'Database error' });
+        }
+    });
+
+    // POST /ingame/family/leave  -  Leave a family (non-leader)
+    router.post('/ingame/family/leave', requireApiKey, async (req, res) => {
+        try {
+            const { user_id } = req.body;
+            if (!user_id) return res.status(400).json({ success: false, error: 'Missing user_id' });
+
+            const [membershipRows] = await pool.query(
+                'SELECT fm.*, cf.id as member_id, cf.role FROM roblox_family_membership fm JOIN roblox_clan_families cf ON cf.id = fm.family_member_id WHERE fm.roblox_user_id = ?',
+                [user_id]
+            );
+            if (!membershipRows.length) {
+                return res.status(404).json({ success: false, error: 'Not in a family' });
+            }
+            const membership = membershipRows[0];
+
+            if (membership.role === 'leader') {
+                return res.status(400).json({ success: false, error: 'The leader cannot leave. Disband the family instead.' });
+            }
+
+            // Check active marriage
+            const [marriageRows] = await pool.query(
+                "SELECT id FROM roblox_clan_marriages WHERE (person1_id = ? OR person2_id = ?) AND status IN ('proposed', 'accepted')",
+                [membership.member_id, membership.member_id]
+            );
+            if (marriageRows.length) {
+                return res.status(409).json({ success: false, error: 'Cannot leave: dissolve your marriage first' });
+            }
+
+            // Re-parent children
+            await pool.query(
+                'UPDATE roblox_clan_families SET parent_id = ? WHERE parent_id = ?',
+                [null, membership.member_id]
+            );
+
+            // Remove membership tracking
+            await pool.query('DELETE FROM roblox_family_membership WHERE roblox_user_id = ?', [user_id]);
+
+            // Remove family member record
+            await pool.query('DELETE FROM roblox_clan_families WHERE id = ?', [membership.member_id]);
+
+            res.json({ success: true });
+        } catch (err) {
+            console.error('[Sengoku] POST /ingame/family/leave error:', err);
+            res.status(500).json({ success: false, error: 'Database error' });
+        }
+    });
+
+    // POST /ingame/marriages  -  Propose marriage (uses family_group_id instead of clan keys)
+    router.post('/ingame/marriages', requireApiKey, async (req, res) => {
+        try {
+            const { person1_id, person2_id } = req.body;
+
+            if (!person1_id || !person2_id) {
+                return res.status(400).json({ success: false, error: 'Required: person1_id, person2_id' });
+            }
+
+            // Fetch both persons
+            const [persons] = await pool.query(
+                'SELECT * FROM roblox_clan_families WHERE id IN (?, ?)',
+                [person1_id, person2_id]
+            );
+            if (persons.length !== 2) {
+                return res.status(404).json({ success: false, error: 'One or both persons not found' });
+            }
+
+            const p1 = persons.find(p => p.id == person1_id);
+            const p2 = persons.find(p => p.id == person2_id);
+
+            // Can't marry within same family
+            const p1Group = p1.family_group_id || p1.clan_id;
+            const p2Group = p2.family_group_id || p2.clan_id;
+            if (p1Group && p2Group && p1Group === p2Group) {
+                return res.status(400).json({ success: false, error: 'Cannot marry within the same family' });
+            }
+
+            // Opposite sex only
+            if (p1.gender === p2.gender) {
+                return res.status(400).json({ success: false, error: 'Marriage requires opposite genders' });
+            }
+
+            // Check neither already married/proposed
+            const [marriedRows] = await pool.query(
+                "SELECT id FROM roblox_clan_marriages WHERE (person1_id IN (?, ?) OR person2_id IN (?, ?)) AND status IN ('proposed', 'accepted')",
+                [person1_id, person2_id, person1_id, person2_id]
+            );
+            if (marriedRows.length) {
+                return res.status(409).json({ success: false, error: 'One or both persons already have an active or pending marriage' });
+            }
+
+            // Use clan_id or family_group_id as the "clan" identifiers for the marriage record
+            const clan1 = p1.clan_id || p1.family_group_id || 0;
+            const clan2 = p2.clan_id || p2.family_group_id || 0;
+
+            const [result] = await pool.query(
+                "INSERT INTO roblox_clan_marriages (person1_id, person2_id, clan1_id, clan2_id, status, proposed_by_clan_id) VALUES (?, ?, ?, ?, 'proposed', ?)",
+                [person1_id, person2_id, clan1, clan2, clan1]
+            );
+
+            res.json({ success: true, marriageId: result.insertId });
+        } catch (err) {
+            console.error('[Sengoku] POST /ingame/marriages error:', err);
+            res.status(500).json({ success: false, error: 'Database error' });
+        }
+    });
+
+    // PUT /ingame/marriages  -  Accept / reject / dissolve (same logic, just with API key auth)
+    router.put('/ingame/marriages', requireApiKey, async (req, res) => {
+        try {
+            const { id, action } = req.body;
+            if (!id || !action) {
+                return res.status(400).json({ success: false, error: 'Required: id, action (accept/reject/dissolve)' });
+            }
+
+            const [rows] = await pool.query('SELECT * FROM roblox_clan_marriages WHERE id = ?', [id]);
+            if (!rows.length) return res.status(404).json({ success: false, error: 'Marriage not found' });
+
+            const marriage = rows[0];
+
+            switch (action) {
+                case 'accept':
+                    if (marriage.status !== 'proposed') {
+                        return res.status(400).json({ success: false, error: 'Can only accept proposals' });
+                    }
+                    await pool.query("UPDATE roblox_clan_marriages SET status = 'accepted', resolved_at = NOW() WHERE id = ?", [id]);
+                    return res.json({ success: true, message: 'Marriage accepted' });
+
+                case 'reject':
+                    if (marriage.status !== 'proposed') {
+                        return res.status(400).json({ success: false, error: 'Can only reject proposals' });
+                    }
+                    await pool.query("UPDATE roblox_clan_marriages SET status = 'dissolved', resolved_at = NOW() WHERE id = ?", [id]);
+                    return res.json({ success: true, message: 'Proposal rejected' });
+
+                case 'dissolve':
+                    if (marriage.status !== 'accepted') {
+                        return res.status(400).json({ success: false, error: 'Can only dissolve accepted marriages' });
+                    }
+                    await pool.query("UPDATE roblox_clan_marriages SET status = 'dissolved', resolved_at = NOW() WHERE id = ?", [id]);
+                    return res.json({ success: true, message: 'Marriage dissolved' });
+
+                default:
+                    return res.status(400).json({ success: false, error: 'Invalid action' });
+            }
+        } catch (err) {
+            console.error('[Sengoku] PUT /ingame/marriages error:', err);
+            res.status(500).json({ success: false, error: 'Database error' });
+        }
+    });
+
+    // GET /ingame/marriages/:familyGroupId  -  Get marriages for a family
+    router.get('/ingame/marriages/:familyGroupId', requireApiKey, async (req, res) => {
+        try {
+            const familyGroupId = parseInt(req.params.familyGroupId);
+
+            const [members] = await pool.query(
+                'SELECT id FROM roblox_clan_families WHERE family_group_id = ?', [familyGroupId]
+            );
+            if (!members.length) return res.json({ success: true, alliances: [], proposals: [] });
+
+            const memberIds = members.map(m => m.id);
+            const placeholders = memberIds.map(() => '?').join(',');
+
+            const [rows] = await pool.query(
+                `SELECT m.*,
+                        p1.character_name as person1_name, p1.gender as person1_gender, p1.roblox_user_id as person1_roblox,
+                        p2.character_name as person2_name, p2.gender as person2_gender, p2.roblox_user_id as person2_roblox
+                 FROM roblox_clan_marriages m
+                 JOIN roblox_clan_families p1 ON p1.id = m.person1_id
+                 JOIN roblox_clan_families p2 ON p2.id = m.person2_id
+                 WHERE (m.person1_id IN (${placeholders}) OR m.person2_id IN (${placeholders}))
+                   AND m.status IN ('proposed', 'accepted')
+                 ORDER BY m.status = 'accepted' DESC, m.created_at DESC`,
+                [...memberIds, ...memberIds]
+            );
+
+            const alliances = [];
+            const proposals = [];
+            for (const row of rows) {
+                const entry = {
+                    id: row.id,
+                    status: row.status,
+                    person1: { id: row.person1_id, name: row.person1_name, gender: row.person1_gender, robloxId: row.person1_roblox ? Number(row.person1_roblox) : null },
+                    person2: { id: row.person2_id, name: row.person2_name, gender: row.person2_gender, robloxId: row.person2_roblox ? Number(row.person2_roblox) : null },
+                    created_at: row.created_at,
+                };
+                if (row.status === 'accepted') alliances.push(entry);
+                else proposals.push(entry);
+            }
+
+            res.json({ success: true, alliances, proposals });
+        } catch (err) {
+            console.error('[Sengoku] GET /ingame/marriages error:', err);
+            res.status(500).json({ success: false, error: 'Database error' });
         }
     });
 

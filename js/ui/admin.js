@@ -87,7 +87,8 @@ const Admin = {
         if (!select) return;
 
         const family = CLAN_FAMILIES[clanId];
-        const isImperialClan = clanId && clanId.toLowerCase().replace(/_/g, ' ') === 'imperial court';
+        const clan = GameState.clans[clanId];
+        const isImperialClan = clan && clan.isImperial;
         const leaderLabel = isImperialClan ? 'Emperor' : 'Daimyo';
         if (!family) {
             select.innerHTML = `<option value="">Parent: ${leaderLabel} (default)</option>`;
@@ -222,11 +223,12 @@ const Admin = {
         if (isImperial) {
             // Imperial clans: no army, rally cap forced to 0, protected province
             clan.rallyCap = 0;
+            clan.isImperial = true;
             delete province.armies[clanId];
             GameState.protectedProvinces[provId] = clanId;
 
-            // Save rally cap to DB
-            API.updateClanSettings(clan.dbClanId, { rallyCap: 0 }).catch(() => {});
+            // Save rally cap and imperial status to DB
+            API.updateClanSettings(clan.dbClanId, { rallyCap: 0, isImperial: true }).catch(() => {});
 
             GameState.save();
             MapRenderer.update();
@@ -236,9 +238,12 @@ const Admin = {
             Notifications.show(`${clan.name} spawned at ${provName} — Imperial (no army, protected)`, "success");
         } else {
             // Normal clans: place starting army (half rally cap)
+            clan.isImperial = false;
             const startingTroops = Math.floor(clan.rallyCap / 2);
             province.armies[clanId] = startingTroops;
             delete GameState.protectedProvinces[provId];
+
+            API.updateClanSettings(clan.dbClanId, { isImperial: false }).catch(() => {});
 
             GameState.save();
             MapRenderer.update();
@@ -698,7 +703,7 @@ const Admin = {
                 if (result && result.id) {
                     // Add to local CLAN_FAMILIES immediately
                     if (!CLAN_FAMILIES[clanId]) {
-                        const addIsImperial = clanId.toLowerCase().replace(/_/g, ' ') === 'imperial court';
+                        const addIsImperial = GameState.clans[clanId] && GameState.clans[clanId].isImperial;
                         CLAN_FAMILIES[clanId] = {
                             leader: { id: `${clanId.replace(/\s+/g, '_')}_daimyo`, name: addIsImperial ? 'Emperor' : 'Daimyo', title: '', gender: 'male', robloxId: DEFAULT_ROBLOX_ID },
                             children: []
@@ -791,7 +796,7 @@ const Admin = {
 
         if (isLeader) {
             // === Leader death — requires successor selection ===
-            const isImperialKill = clanId && clanId.toLowerCase().replace(/_/g, ' ') === 'imperial court';
+            const isImperialKill = GameState.clans[clanId] && GameState.clans[clanId].isImperial;
             const leaderRole = isImperialKill ? 'Emperor' : 'Daimyo';
             const children = family.children.filter(c => !c.deceased);
             if (children.length === 0) {

@@ -63,6 +63,7 @@ const API = {
                     description: dbClan.description || null,
                     daimyo: dbClan.daimyo || null,
                     dbClanId: dbClan.clanId,
+                    isImperial: dbClan.isImperial || false,
                 };
             });
 
@@ -93,7 +94,8 @@ const API = {
                 const existing = CLAN_FAMILIES[clanKey];
                 let leader;
 
-                const isImperial = clanKey.toLowerCase().replace(/_/g, ' ') === 'imperial court';
+                const clan = GameState.clans[clanKey];
+                const isImperial = fam.isImperial || (clan && clan.isImperial) || false;
                 const leaderFallback = isImperial ? 'Emperor' : 'Daimyo';
 
                 if (fam.leader) {
@@ -108,7 +110,6 @@ const API = {
                     leader = existing.leader;
                 } else {
                     // No leader from DB or hardcoded — create a placeholder
-                    const clan = GameState.clans[clanKey];
                     leader = {
                         id: `${clanKey.replace(/\s+/g, '_')}_daimyo`,
                         name: clan ? clan.name + ' ' + leaderFallback : leaderFallback,
@@ -141,8 +142,7 @@ const API = {
             for (const clanKey of Object.keys(GameState.clans)) {
                 if (!CLAN_FAMILIES[clanKey]) {
                     const clan = GameState.clans[clanKey];
-                    const placeholderImperial = clanKey.toLowerCase().replace(/_/g, ' ') === 'imperial court';
-                    const placeholderTitle = placeholderImperial ? 'Emperor' : 'Daimyo';
+                    const placeholderTitle = (clan && clan.isImperial) ? 'Emperor' : 'Daimyo';
                     CLAN_FAMILIES[clanKey] = {
                         leader: {
                             id: `${clanKey.replace(/\s+/g, '_')}_daimyo`,
