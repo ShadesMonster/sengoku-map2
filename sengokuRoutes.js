@@ -994,10 +994,10 @@ module.exports = function createSengokuRouter(pool) {
                     [invite.family_group_id]
                 );
 
-                // Add to family tree
+                // Add to family tree (include clan_id if family is clan-linked)
                 const [memberResult] = await conn.query(
-                    "INSERT INTO roblox_clan_families (family_group_id, roblox_user_id, character_name, role, gender, display_order, parent_id) VALUES (?, ?, ?, 'child', ?, ?, ?)",
-                    [invite.family_group_id, userId, invite.character_name, invite.gender, orderRows[0].next_order, invite.parent_member_id]
+                    "INSERT INTO roblox_clan_families (clan_id, family_group_id, roblox_user_id, character_name, role, gender, display_order, parent_id) VALUES (?, ?, ?, ?, 'child', ?, ?, ?)",
+                    [group.clan_id || null, invite.family_group_id, userId, invite.character_name, invite.gender, orderRows[0].next_order, invite.parent_member_id]
                 );
 
                 // Track membership
