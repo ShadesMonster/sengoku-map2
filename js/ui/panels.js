@@ -422,6 +422,26 @@ const ClanPanel = {
             }
         });
 
+        // Search toggle
+        const searchBtn = document.getElementById("clan-search-btn");
+        const searchInput = document.getElementById("clan-search-input");
+        searchBtn.addEventListener("click", () => {
+            const isOpen = !searchInput.classList.contains("hidden");
+            if (isOpen) {
+                searchInput.classList.add("hidden");
+                searchInput.value = "";
+                this._searchQuery = "";
+                if (this.currentClan) this.render(this.currentClan);
+            } else {
+                searchInput.classList.remove("hidden");
+                searchInput.focus();
+            }
+        });
+        searchInput.addEventListener("input", () => {
+            this._searchQuery = searchInput.value.trim().toLowerCase();
+            if (this.currentClan) this.renderFamily(this.currentClan, GameState.getFamily(this.currentClan));
+        });
+
         // Close member popup when clicking outside
         document.getElementById("clan-panel-content").addEventListener("click", (e) => {
             if (!e.target.closest(".ck3-family-member") && !e.target.closest("#member-popup")) {
@@ -444,6 +464,7 @@ const ClanPanel = {
 
         this.currentClan = clanId;
         this.viewingCharacterId = null; // reset to leader
+        this._clearSearch();
         document.getElementById("clan-panel").classList.remove("hidden");
         this.closeMemberPopup();
         this.render(clanId);
@@ -452,8 +473,15 @@ const ClanPanel = {
     hide() {
         document.getElementById("clan-panel").classList.add("hidden");
         this.closeMemberPopup();
+        this._clearSearch();
         this.currentClan = null;
         this.viewingCharacterId = null;
+    },
+
+    _clearSearch() {
+        this._searchQuery = "";
+        const input = document.getElementById("clan-search-input");
+        if (input) { input.value = ""; input.classList.add("hidden"); }
     },
 
     // Navigate to a character's profile
@@ -710,6 +738,29 @@ const ClanPanel = {
         const viewId = person.id;
 
         let html = '';
+
+        // --- Search mode: show flat filtered list ---
+        if (this._searchQuery) {
+            const q = this._searchQuery;
+            const allMembers = [family.leader, ...this._getAllFamilyMembers(clanId)];
+            const seen = new Set();
+            const matches = allMembers.filter(m => {
+                if (seen.has(m.id)) return false;
+                seen.add(m.id);
+                return m.name && m.name.toLowerCase().includes(q);
+            });
+
+            if (matches.length === 0) {
+                html = '<div class="empty-state">No members found</div>';
+            } else {
+                html += `<div class="ck3-family-header">Results (${matches.length})</div>`;
+                html += '<div class="ftree-children" style="border-top:none;padding-top:0">';
+                matches.forEach(m => { html += this._renderMemberCard(m, m.clanId || clanId); });
+                html += '</div>';
+            }
+            container.innerHTML = html;
+            return;
+        }
 
         // --- Parents ---
         const parents = this._getParents(viewId, clanId);
