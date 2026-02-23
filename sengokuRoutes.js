@@ -160,21 +160,66 @@ module.exports = function createSengokuRouter(pool) {
             };
         }
 
-        // Children from roblox_clan_families
-        const [childRows] = await pool.query(
+        // Children from old clan_id-based records
+        const [clanChildren] = await pool.query(
             'SELECT * FROM roblox_clan_families WHERE clan_id = ? ORDER BY display_order ASC, id ASC',
             [dbClanId]
         );
 
-        const children = childRows.map(row => ({
-            id: 'db_' + row.id,
-            name: row.character_name,
-            gender: row.gender,
-            robloxId: row.roblox_user_id ? Number(row.roblox_user_id) : null,
-            dbId: row.id,
-            parentId: row.parent_id || null,
-            title: row.title || null,
-        }));
+        // Also check if the daimyo has an in-game family group
+        let ingameChildren = [];
+        let leaderMemberId = null;
+        if (clan.daimyo_user_id) {
+            try {
+                const [fgRows] = await pool.query(
+                    'SELECT fg.id FROM roblox_family_membership fm JOIN roblox_family_groups fg ON fg.id = fm.family_group_id WHERE fm.roblox_user_id = ?',
+                    [clan.daimyo_user_id]
+                );
+                if (fgRows.length) {
+                    const familyGroupId = fgRows[0].id;
+
+                    // Find the leader's member id so we can remap parentId
+                    const [leaderMemberRows] = await pool.query(
+                        "SELECT id FROM roblox_clan_families WHERE family_group_id = ? AND role = 'leader'",
+                        [familyGroupId]
+                    );
+                    if (leaderMemberRows.length) {
+                        leaderMemberId = leaderMemberRows[0].id;
+                    }
+
+                    const [fgChildren] = await pool.query(
+                        "SELECT * FROM roblox_clan_families WHERE family_group_id = ? AND role != 'leader' ORDER BY display_order ASC, id ASC",
+                        [familyGroupId]
+                    );
+                    ingameChildren = fgChildren;
+                }
+            } catch (_) { /* family_group tables may not exist yet */ }
+        }
+
+        // Merge old and in-game children, deduplicate by id
+        const seenIds = new Set(clanChildren.map(c => c.id));
+        const allChildRows = [...clanChildren, ...ingameChildren.filter(c => !seenIds.has(c.id))];
+
+        const children = allChildRows.map(row => {
+            // If parent_id points to the leader's member id, set null so frontend defaults to leader
+            let parentId = row.parent_id || null;
+            if (leaderMemberId && parentId === leaderMemberId) {
+                parentId = null;
+            } else if (parentId) {
+                // Prefix with db_ to match the id format used by the frontend
+                parentId = 'db_' + parentId;
+            }
+
+            return {
+                id: 'db_' + row.id,
+                name: row.character_name,
+                gender: row.gender,
+                robloxId: row.roblox_user_id ? Number(row.roblox_user_id) : null,
+                dbId: row.id,
+                parentId,
+                title: row.title || null,
+            };
+        });
 
         return {
             leader,

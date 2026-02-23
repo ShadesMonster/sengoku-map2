@@ -177,29 +177,6 @@ const API = {
         return this.request(`families?clan=${clanKey}`);
     },
 
-    // Add a family member
-    async addFamilyMember(clanKey, characterName, role, gender, robloxUserId, title, parentDbId) {
-        return this.request("families", "POST", {
-            clan: clanKey,
-            character_name: characterName,
-            role,
-            gender,
-            roblox_user_id: robloxUserId || null,
-            title: title || null,
-            parent_id: parentDbId || null,
-        });
-    },
-
-    // Update a family member
-    async updateFamilyMember(id, updates) {
-        return this.request("families", "PUT", { id, ...updates });
-    },
-
-    // Remove a family member
-    async removeFamilyMember(id) {
-        return this.request(`families?id=${id}`, "DELETE");
-    },
-
     // ---- Marriages ----
 
     // Fetch marriages/proposals (optionally for a specific clan)

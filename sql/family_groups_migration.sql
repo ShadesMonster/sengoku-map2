@@ -6,7 +6,7 @@
 
 -- Family groups: represents a family unit (standalone or clan-linked).
 -- Standalone families: clan_id IS NULL, max_members = 8
--- Clan families:       clan_id set,    max_members = 16 (expandable to 32)
+-- Clan families:       clan_id set,    max_members = 8 (expandable to 16)
 CREATE TABLE IF NOT EXISTS roblox_family_groups (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS roblox_family_groups (
     leader_username VARCHAR(50) DEFAULT NULL,
     leader_character_name VARCHAR(100) DEFAULT NULL,
     leader_gender ENUM('male', 'female') NOT NULL DEFAULT 'male',
-    clan_id INT DEFAULT NULL,
+    clan_id VARCHAR(100) DEFAULT NULL,
     max_members INT NOT NULL DEFAULT 8,
     is_clan BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
