@@ -1,6 +1,6 @@
 // Build the daimyo's display name from profile fields.
 // Normal:   "{ClanName} {GivenName}"
-// Imperial: "{GivenName}" (no clan name for Emperor)
+// Imperial: "Emperor {GivenName}" (no clan name for Emperor)
 // Falls back to roblox username, then just the clan name.
 function getLeaderDisplayName(clanId) {
     const clan = GameState.getClan(clanId);
@@ -20,13 +20,14 @@ function getLeaderDisplayName(clanId) {
         if (robloxName) {
             givenName = robloxName;
         } else {
-            return clan.name;
+            return clan.isImperial ? 'Emperor' : clan.name;
         }
     }
 
-    // Imperial clans: just show given name, no clan name
+    // Imperial clans: "Emperor GivenName"
     if (clan.isImperial) {
-        return givenName;
+        const prefix = leader?.prefix && !leader?.prefixHidden ? leader.prefix : 'Emperor';
+        return `${prefix} ${givenName}`;
     }
 
     // Don't duplicate if name already starts with clan name
@@ -615,7 +616,7 @@ const ClanPanel = {
                 <div class="ck3-leader-name">${displayName}${isDeceased ? ' <span style="color:#888;font-size:11px">(Deceased)</span>' : ''}</div>
                 ${!isLeader ? `<div class="ck3-clan-name" style="color: ${clan.color}">${clan.name}</div>` : ''}
                 ${title ? `<div class="ck3-leader-title-quote">\u201c${title}\u201d</div>` : ''}
-                <div class="ck3-leader-title">${isLeader ? (isImperial ? role : `${role} of ${clan.name}`) : role}</div>
+                <div class="ck3-leader-title">${isLeader ? (isImperial ? `${role} of Japan` : `${role} of ${clan.name}`) : role}</div>
                 ${isLeader && homeProv ? `<div class="ck3-capital-badge">&#x1F3EF; ${homeProv.japaneseName} ${homeProv.name}</div>` : ""}
             </div>
         `;
