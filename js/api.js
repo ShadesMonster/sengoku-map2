@@ -103,6 +103,8 @@ const API = {
                         id: existing?.leader?.id || `${clanKey.replace(/\s+/g, '_')}_daimyo`,
                         name: fam.leader.name || (existing?.leader?.name || leaderFallback),
                         title: fam.leader.title || (existing?.leader?.title || ''),
+                        prefix: fam.leader.prefix || null,
+                        prefixHidden: fam.leader.prefixHidden || false,
                         gender: existing?.leader?.gender || 'male',
                         robloxId: fam.leader.robloxId || (existing?.leader?.robloxId || DEFAULT_ROBLOX_ID),
                     };

@@ -1,5 +1,6 @@
-// Get the daimyo's full display name: "{ClanName} {GivenName}"
-// Falls back to roblox username, then just the clan name
+// Build the daimyo's display name from profile fields.
+// Format: "{ClanName} "Title" {GivenName}"  (title only if present)
+// Falls back to roblox username, then just the clan name.
 function getLeaderDisplayName(clanId) {
     const clan = GameState.getClan(clanId);
     if (!clan) return '';
@@ -14,7 +15,6 @@ function getLeaderDisplayName(clanId) {
         || lower.endsWith(' daimyo');
 
     if (isPlaceholder) {
-        // Try roblox username as fallback
         const robloxName = clan.daimyo?.username;
         if (robloxName) {
             givenName = robloxName;
@@ -28,6 +28,11 @@ function getLeaderDisplayName(clanId) {
         return givenName;
     }
 
+    // Build: ClanName "Title" GivenName
+    const title = leader?.title;
+    if (title) {
+        return `${clan.name} \u201c${title}\u201d ${givenName}`;
+    }
     return `${clan.name} ${givenName}`;
 }
 
@@ -561,8 +566,11 @@ const ClanPanel = {
         const currentClanId = this.currentClan || "";
         const isImperial = clan && clan.isImperial;
         const leaderTitle = isImperial ? "Emperor" : "Daimyo";
-        const title = person.title || (isLeader ? leaderTitle : "");
-        const role = isLeader ? leaderTitle : "Family Member";
+        // Use prefix from profile if available, otherwise fall back to Daimyo/Emperor
+        const role = isLeader
+            ? (person.prefix && !person.prefixHidden ? person.prefix : leaderTitle)
+            : "Family Member";
+        const title = person.title || "";
 
         // For leaders: show full name "{ClanName} {GivenName}", clan line folded in
         // For other family members: show person name + clan name separately
@@ -577,7 +585,7 @@ const ClanPanel = {
             <div class="ck3-leader-details">
                 <div class="ck3-leader-name">${displayName}${isDeceased ? ' <span style="color:#888;font-size:11px">(Deceased)</span>' : ''}</div>
                 ${!isLeader ? `<div class="ck3-clan-name" style="color: ${clan.color}">${clan.name}</div>` : ''}
-                <div class="ck3-leader-title">${title || role}</div>
+                <div class="ck3-leader-title">${role}${title ? ` \u2014 \u201c${title}\u201d` : ''}</div>
                 ${isLeader && homeProv ? `<div class="ck3-capital-badge">&#x1F3EF; ${homeProv.japaneseName} ${homeProv.name}</div>` : ""}
             </div>
         `;

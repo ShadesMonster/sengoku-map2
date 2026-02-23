@@ -125,7 +125,7 @@ module.exports = function createSengokuRouter(pool) {
 
         // Leader from roblox_clans
         const [clanRows] = await pool.query(
-            'SELECT clan_id, name, icon, daimyo_user_id, daimyo_username, daimyo_rp_name FROM roblox_clans WHERE clan_id = ?',
+            'SELECT clan_id, name, icon, daimyo_user_id, daimyo_username, daimyo_rp_name, is_imperial FROM roblox_clans WHERE clan_id = ?',
             [dbClanId]
         );
         if (!clanRows.length) return null;
@@ -133,13 +133,30 @@ module.exports = function createSengokuRouter(pool) {
 
         let leader = null;
         if (clan.daimyo_user_id) {
-            const rpName = clan.daimyo_rp_name;
             const username = clan.daimyo_username;
             const isImperial = !!clan.is_imperial;
+
+            // Prefer profile table for individual fields
+            let profile = null;
+            try {
+                const [profileRows] = await pool.query(
+                    'SELECT given_name, title, prefix, prefix_hidden FROM roblox_player_profiles WHERE roblox_user_id = ?',
+                    [clan.daimyo_user_id]
+                );
+                if (profileRows.length) profile = profileRows[0];
+            } catch (_) { /* table may not exist yet */ }
+
+            const givenName = profile?.given_name || username || (isImperial ? 'Emperor' : 'Daimyo');
+            const title = profile?.title || null;
+            const prefix = profile?.prefix || (isImperial ? 'Emperor' : 'Daimyo');
+            const prefixHidden = profile ? !!profile.prefix_hidden : false;
+
             leader = {
-                name: rpName || username || (isImperial ? 'Emperor' : 'Daimyo'),
+                name: givenName,
                 robloxId: Number(clan.daimyo_user_id),
-                title: isImperial ? 'Emperor' : ('Daimyo of ' + clan.name),
+                title,
+                prefix,
+                prefixHidden,
             };
         }
 
@@ -1249,6 +1266,62 @@ module.exports = function createSengokuRouter(pool) {
             res.json({ success: true, alliances, proposals });
         } catch (err) {
             console.error('[Sengoku] GET /ingame/marriages error:', err);
+            res.status(500).json({ success: false, error: 'Database error' });
+        }
+    });
+
+    // ============================================================
+    // PUT /ingame/profile/:userId  -  Sync profile from Roblox game
+    // ============================================================
+    router.put('/ingame/profile/:userId', requireApiKey, async (req, res) => {
+        try {
+            const userId = parseInt(req.params.userId);
+            if (!userId) return res.status(400).json({ success: false, error: 'Invalid userId' });
+
+            const { given_name, title, prefix, prefix_hidden } = req.body;
+
+            await pool.query(
+                `INSERT INTO roblox_player_profiles (roblox_user_id, given_name, title, prefix, prefix_hidden)
+                 VALUES (?, ?, ?, ?, ?)
+                 ON DUPLICATE KEY UPDATE
+                    given_name    = VALUES(given_name),
+                    title         = VALUES(title),
+                    prefix        = VALUES(prefix),
+                    prefix_hidden = VALUES(prefix_hidden)`,
+                [userId, given_name || null, title || null, prefix || null, prefix_hidden ? 1 : 0]
+            );
+
+            res.json({ success: true });
+        } catch (err) {
+            console.error('[Sengoku] PUT /ingame/profile error:', err);
+            res.status(500).json({ success: false, error: 'Database error' });
+        }
+    });
+
+    // GET /ingame/profile/:userId  -  Get a player's profile
+    router.get('/ingame/profile/:userId', requireApiKey, async (req, res) => {
+        try {
+            const userId = parseInt(req.params.userId);
+            if (!userId) return res.status(400).json({ success: false, error: 'Invalid userId' });
+
+            const [rows] = await pool.query(
+                'SELECT * FROM roblox_player_profiles WHERE roblox_user_id = ?',
+                [userId]
+            );
+
+            if (!rows.length) return res.json({ success: true, profile: null });
+            const p = rows[0];
+            res.json({
+                success: true,
+                profile: {
+                    givenName: p.given_name,
+                    title: p.title,
+                    prefix: p.prefix,
+                    prefixHidden: !!p.prefix_hidden,
+                },
+            });
+        } catch (err) {
+            console.error('[Sengoku] GET /ingame/profile error:', err);
             res.status(500).json({ success: false, error: 'Database error' });
         }
     });
