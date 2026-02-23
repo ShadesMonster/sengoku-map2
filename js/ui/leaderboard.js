@@ -98,7 +98,7 @@ const Leaderboard = {
 
             html += `<div class="lb-row" data-clan="${cs.clanId}" onclick="Leaderboard.onClanClick('${cs.clanId}')" title="Click to view ${cs.clan.name} family">`;
             html += `<span class="lb-col-rank">${medal}</span>`;
-            html += `<span class="lb-col-clan"><span class="lb-clan-color" style="background:${cs.clan.color}"></span>${cs.clan.japaneseName} ${cs.clan.name}</span>`;
+            html += `<span class="lb-col-clan"><span class="lb-clan-color" style="background:${cs.clan.color}"></span>${cs.clan.name}</span>`;
             html += `<span class="lb-col-prov">${cs.provinces}</span>`;
             html += `<span class="lb-col-territory"><div class="lb-bar-bg"><div class="lb-bar-fill" style="width:${barWidth}%;background:${cs.clan.color}"></div></div><span class="lb-pct">${cs.territoryPct.toFixed(1)}%</span></span>`;
             html += `<span class="lb-col-troops">${cs.troops.toLocaleString()}</span>`;

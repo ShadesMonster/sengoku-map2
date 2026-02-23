@@ -129,7 +129,7 @@ const Admin = {
             return `
                 <div class="admin-clan-entry" style="border-left: 3px solid ${c.color}">
                     <div class="clan-info">
-                        <strong style="color: ${c.color}">${c.japaneseName} ${c.name}</strong>
+                        <strong style="color: ${c.color}">${c.name}</strong>
                         <span>${provinces} provinces, ${troops} troops</span>
                     </div>
                     <div class="clan-controls">
@@ -1059,7 +1059,7 @@ const Admin = {
 
                 let html = `
                     <div class="admin-family-clan" style="border-left: 3px solid ${clan.color}; margin-bottom: 8px; padding-left: 8px;">
-                        <strong style="color: ${clan.color}">${clan.japaneseName} ${clan.name}</strong>
+                        <strong style="color: ${clan.color}">${clan.name}</strong>
                 `;
 
                 // Leader

@@ -46,7 +46,7 @@ const Panels = {
         const ownerSpan = document.getElementById("panel-owner-value");
         if (state.owner) {
             const clan = GameState.getClan(state.owner);
-            ownerSpan.innerHTML = `<span style="color:${clan.color}">${clan.japaneseName} ${clan.name}</span>`;
+            ownerSpan.innerHTML = `<span style="color:${clan.color}">${clan.name}</span>`;
         } else {
             ownerSpan.textContent = "Unclaimed";
         }
@@ -73,7 +73,7 @@ const Panels = {
                 const players = a.count / TROOP_RATIO;
                 return `
                     <div class="army-entry" style="border-left: 3px solid ${a.clan.color}">
-                        <span class="army-clan">${a.clan.japaneseName} ${a.clan.name}</span>
+                        <span class="army-clan">${a.clan.name}</span>
                         <span class="army-count">${a.count.toLocaleString()} ashigaru <span class="player-equiv">(${players} men)</span></span>
                     </div>
                 `;
@@ -87,7 +87,7 @@ const Panels = {
                 const sideLabel = bt.side === "attacker" ? "ATK" : "DEF";
                 return `
                     <div class="army-entry in-battle" style="border-left: 3px solid ${bt.clan.color}">
-                        <span class="army-clan">${bt.clan.japaneseName} ${bt.clan.name} <span class="battle-side-tag ${bt.side}">${sideLabel}</span></span>
+                        <span class="army-clan">${bt.clan.name} <span class="battle-side-tag ${bt.side}">${sideLabel}</span></span>
                         <span class="army-count">${bt.count.toLocaleString()} ashigaru <span class="player-equiv">(${players} men)</span></span>
                     </div>
                 `;
@@ -105,7 +105,7 @@ const Panels = {
                 const destName = PROVINCE_MAP[r.destination] ? PROVINCE_MAP[r.destination].name : "unknown";
                 return `
                     <div class="army-entry retreating" style="border-left: 3px solid ${clan.color}">
-                        <span class="army-clan">${clan.japaneseName} ${clan.name} <span class="battle-side-tag retreating">RET</span></span>
+                        <span class="army-clan">${clan.name} <span class="battle-side-tag retreating">RET</span></span>
                         <span class="army-count">${r.troops.toLocaleString()} ashigaru <span class="player-equiv">(${players} men)</span> → ${destName} (${r.weeksLeft}w)</span>
                     </div>
                 `;
@@ -538,7 +538,7 @@ const ClanPanel = {
             </div>
             <div class="ck3-leader-details">
                 <div class="ck3-leader-name">${person.name}${isDeceased ? ' <span style="color:#888;font-size:11px">(Deceased)</span>' : ''}</div>
-                <div class="ck3-clan-name" style="color: ${clan.color}">${clan.japaneseName} ${clan.name}</div>
+                <div class="ck3-clan-name" style="color: ${clan.color}">${clan.name}</div>
                 <div class="ck3-leader-title">${title || role}</div>
                 ${isLeader && homeProv ? `<div class="ck3-capital-badge">&#x1F3EF; ${homeProv.japaneseName} ${homeProv.name}</div>` : ""}
             </div>
