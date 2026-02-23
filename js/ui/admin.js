@@ -133,10 +133,8 @@ const Admin = {
                         <span>${provinces} provinces, ${troops} troops</span>
                     </div>
                     <div class="clan-controls">
-                        <label>Display:</label>
+                        <label>Colour:</label>
                         <input type="color" value="${c.color}" class="clan-color-input" data-clan="${c.id}"/>
-                        <input type="text" value="${c.japaneseName}" placeholder="Japanese name"
-                               class="clan-jpname-input" data-clan="${c.id}" style="width:70px"/>
                         <button class="small-btn" onclick="Admin.updateClanDisplay('${c.id}')">Save</button>
                     </div>
                     <div class="clan-controls">
@@ -159,7 +157,8 @@ const Admin = {
                     <div class="clan-controls">
                         <label class="imperial-label">
                             <input type="checkbox" class="imperial-check" data-clan="${c.id}"
-                                ${c.castleProvince && GameState.protectedProvinces[c.castleProvince] === c.id ? 'checked' : ''}/>
+                                ${c.castleProvince && GameState.protectedProvinces[c.castleProvince] === c.id ? 'checked' : ''}
+                                onchange="Admin.onImperialToggle('${c.id}', this.checked)"/>
                             Imperial (can't be conquered)
                         </label>
                     </div>
@@ -626,22 +625,14 @@ const Admin = {
 
     async updateClanDisplay(clanId) {
         const colorInput = document.querySelector(`.clan-color-input[data-clan="${clanId}"]`);
-        const jpNameInput = document.querySelector(`.clan-jpname-input[data-clan="${clanId}"]`);
-        if (!colorInput || !jpNameInput) return;
+        if (!colorInput) return;
 
         const clan = GameState.getClan(clanId);
         const newColor = colorInput.value;
-        const newJpName = jpNameInput.value.trim();
-
-        if (!newJpName) {
-            Notifications.show("Japanese name cannot be empty", "error");
-            return;
-        }
 
         try {
             await API.updateClanSettings(clan.dbClanId, {
                 color: newColor,
-                japaneseName: newJpName,
             });
         } catch (err) {
             Notifications.show("Failed to save: " + err.message, "error");
@@ -649,11 +640,19 @@ const Admin = {
         }
 
         clan.color = newColor;
-        clan.japaneseName = newJpName;
         GameState.save();
         MapRenderer.update();
         this.renderClanList();
-        Notifications.show(`${clan.name} display updated`, "info");
+        Notifications.show(`${clan.name} colour updated`, "info");
+    },
+
+    onImperialToggle(clanId, checked) {
+        if (checked) {
+            const rallyInput = document.querySelector(`.rally-input[data-clan="${clanId}"]`);
+            if (rallyInput) {
+                rallyInput.value = 0;
+            }
+        }
     },
 
     async resolveBattle(battleId, winningSide) {

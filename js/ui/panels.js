@@ -1,3 +1,36 @@
+// Get the daimyo's full display name: "{ClanName} {GivenName}"
+// Falls back to roblox username, then just the clan name
+function getLeaderDisplayName(clanId) {
+    const clan = GameState.getClan(clanId);
+    if (!clan) return '';
+
+    const family = CLAN_FAMILIES[clanId];
+    const leader = family?.leader;
+    let givenName = leader?.name || '';
+
+    // Check if name is a generic placeholder
+    const lower = givenName.toLowerCase();
+    const isPlaceholder = !givenName || lower === 'daimyo' || lower === 'emperor'
+        || lower.endsWith(' daimyo');
+
+    if (isPlaceholder) {
+        // Try roblox username as fallback
+        const robloxName = clan.daimyo?.username;
+        if (robloxName) {
+            givenName = robloxName;
+        } else {
+            return clan.name;
+        }
+    }
+
+    // Don't duplicate if name already starts with clan name
+    if (givenName.toLowerCase().startsWith(clan.name.toLowerCase() + ' ')) {
+        return givenName;
+    }
+
+    return `${clan.name} ${givenName}`;
+}
+
 // Panels - Side panel, province details, action buttons
 const Panels = {
     init() {
@@ -46,7 +79,8 @@ const Panels = {
         const ownerSpan = document.getElementById("panel-owner-value");
         if (state.owner) {
             const clan = GameState.getClan(state.owner);
-            ownerSpan.innerHTML = `<span style="color:${clan.color}">${clan.name}</span>`;
+            const daimyoName = getLeaderDisplayName(state.owner);
+            ownerSpan.innerHTML = `<span style="color:${clan.color}">${daimyoName}</span>`;
         } else {
             ownerSpan.textContent = "Unclaimed";
         }
@@ -530,6 +564,10 @@ const ClanPanel = {
         const title = person.title || (isLeader ? leaderTitle : "");
         const role = isLeader ? leaderTitle : "Family Member";
 
+        // For leaders: show full name "{ClanName} {GivenName}", clan line folded in
+        // For other family members: show person name + clan name separately
+        const displayName = isLeader ? getLeaderDisplayName(currentClanId) : person.name;
+
         document.getElementById("clan-portrait-area").innerHTML = `
             ${backLink}
             <div class="ck3-leader-portrait">
@@ -537,8 +575,8 @@ const ClanPanel = {
                 ${spouseHtml}
             </div>
             <div class="ck3-leader-details">
-                <div class="ck3-leader-name">${person.name}${isDeceased ? ' <span style="color:#888;font-size:11px">(Deceased)</span>' : ''}</div>
-                <div class="ck3-clan-name" style="color: ${clan.color}">${clan.name}</div>
+                <div class="ck3-leader-name">${displayName}${isDeceased ? ' <span style="color:#888;font-size:11px">(Deceased)</span>' : ''}</div>
+                ${!isLeader ? `<div class="ck3-clan-name" style="color: ${clan.color}">${clan.name}</div>` : ''}
                 <div class="ck3-leader-title">${title || role}</div>
                 ${isLeader && homeProv ? `<div class="ck3-capital-badge">&#x1F3EF; ${homeProv.japaneseName} ${homeProv.name}</div>` : ""}
             </div>
